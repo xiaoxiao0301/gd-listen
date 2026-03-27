@@ -1,0 +1,112 @@
+# ===========================
+# Flutter / Dart
+# ===========================
+# Dart tool cache
+.dart_tool/
+.flutter-plugins
+.flutter-plugins-dependencies
+.packages
+
+# Build outputs
+build/
+.dart_tool/build/
+
+# Pub cache
+.pub-cache/
+.pub/
+
+# Flutter generated files
+*.g.dart
+*.freezed.dart
+*.mocks.dart
+
+# Drift generated files
+*.drift.dart
+
+# ===========================
+# Android
+# ===========================
+**/android/.gradle/
+**/android/local.properties
+**/android/key.properties
+**/android/app/google-services.json
+**/android/captures/
+**/android/.idea/
+**/android/app/release/
+
+# ===========================
+# iOS / macOS
+# ===========================
+**/ios/Pods/
+**/ios/.symlinks/
+**/ios/Flutter/Flutter.framework
+**/ios/Flutter/Flutter.podspec
+**/ios/Runner/GeneratedPluginRegistrant.*
+**/ios/Podfile.lock
+**/macos/Pods/
+**/macos/Flutter/GeneratedPluginRegistrant.*
+**/macos/.symlinks/
+
+# macOS build
+**/macos/Flutter/ephemeral/
+
+# ===========================
+# IDE / Editor
+# ===========================
+.idea/
+.vscode/
+*.iml
+*.ipr
+*.iws
+.fleet/
+
+# ===========================
+# OS generated
+# ===========================
+.DS_Store
+.DS_Store?
+._*
+.Spotlight-V100
+.Trashes
+Thumbs.db
+ehthumbs.db
+Desktop.ini
+
+# ===========================
+# Local App Data (本地用户数据，不上传)
+# ===========================
+# SQLite databases
+*.db
+*.db-shm
+*.db-wal
+*.sqlite
+*.sqlite3
+
+# Audio cache
+cache/
+audio_cache/
+
+# Lyrics cache
+lyrics_cache/
+
+# ===========================
+# Sensitive / Environment
+# ===========================
+.env
+.env.*
+secrets.dart
+api_keys.dart
+
+# ===========================
+# Test / Coverage
+# ===========================
+coverage/
+*.lcov
+test_results/
+
+# ===========================
+# Miscellaneous
+# ===========================
+*.log
+*.bak
+*.tmp

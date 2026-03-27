@@ -1,0 +1,87 @@
+<!-- 你可以将以下代码保存为 html 文件在浏览器中打开查看效果 -->
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<style>
+  :root {
+    --bg-color: #FFFDF7;
+    --primary-color: #E2A05B;
+    --surface-color: #FFF8E7;
+    --text-main: #3E2723;
+    --text-sub: #795548;
+  }
+  body { font-family: -apple-system, sans-serif; background: var(--bg-color); color: var(--text-main); display: flex; gap: 20px; padding: 20px; }
+  
+  /* 手机端 发现页Mockup */
+  .mobile-mockup { width: 375px; height: 812px; background: white; border-radius: 40px; box-shadow: 0 20px 40px rgba(0,0,0,0.1); overflow: hidden; position: relative; border: 8px solid #333; }
+  .search-bar { margin: 40px 20px 20px; background: var(--surface-color); padding: 12px 20px; border-radius: 20px; color: var(--text-sub); font-size: 14px; }
+  .section-title { margin: 20px; font-weight: bold; font-size: 18px; }
+  .history-tags { display: flex; gap: 10px; padding: 0 20px; flex-wrap: wrap; }
+  .tag { background: rgba(226, 160, 91, 0.15); color: var(--primary-color); padding: 6px 16px; border-radius: 16px; font-size: 12px; font-weight: bold; }
+  .song-list { padding: 0 20px; }
+  .song-item { display: flex; align-items: center; gap: 15px; margin-bottom: 20px; }
+  .song-cover { width: 50px; height: 50px; background: #ddd; border-radius: 12px; background-image: linear-gradient(135deg, #E2A05B, #EEC08A); }
+  .song-info flex-grow: 1; { line-height: 1.4; }
+  .song-title { font-weight: 600; font-size: 15px; }
+  .song-artist { font-size: 12px; color: var(--text-sub); }
+  
+  /* 底部 TabBar */
+  .tab-bar { position: absolute; bottom: 0; width: 100%; height: 80px; background: white; display: flex; justify-content: space-around; align-items: center; font-size: 12px; color: var(--text-sub); box-shadow: 0 -5px 20px rgba(0,0,0,0.05); }
+  .tab-bar span.active { color: var(--primary-color); font-weight: bold; }
+  
+  /* 迷你播放器 */
+  .mini-player { position: absolute; bottom: 90px; left: 10px; right: 10px; height: 60px; background: var(--surface-color); border-radius: 20px; display: flex; align-items: center; padding: 0 15px; box-shadow: 0 10px 20px rgba(226, 160, 91, 0.1); }
+  .mini-cover { width: 40px; height: 40px; border-radius: 50%; background: #3E2723; }
+
+</style>
+</head>
+<body>
+
+  <!-- App 端发现页界面 -->
+  <div class="mobile-mockup">
+    <div class="search-bar">🔍 搜索喜欢的音乐人、专辑...</div>
+    <div class="section-title">搜索历史</div>
+    <div class="history-tags">
+      <div class="tag">周杰伦</div>
+      <div class="tag">陈奕迅</div>
+      <div class="tag">落日飞车</div>
+    </div>
+    <div class="section-title">由于你听过</div>
+    <div class="song-list">
+      <div class="song-item">
+        <div class="song-cover"></div>
+        <div class="song-info">
+          <div class="song-title">My Jinji</div>
+          <div class="song-artist">落日飞车 Sunset Rollercoaster</div>
+        </div>
+        <div style="color:var(--text-sub)">⋮</div>
+      </div>
+      <div class="song-item">
+        <div class="song-cover" style="background-image: linear-gradient(135deg, #795548, #3E2723);"></div>
+        <div class="song-info">
+          <div class="song-title">夜曲</div>
+          <div class="song-artist">周杰伦 - 十一月的萧邦</div>
+        </div>
+        <div style="color:var(--text-sub)">⋮</div>
+      </div>
+    </div>
+    
+    <!-- 音乐悬浮窗 -->
+    <div class="mini-player">
+      <div class="mini-cover"></div>
+      <div style="flex-grow:1; margin-left: 10px; font-weight: bold; font-size: 14px;">My Jinji</div>
+      <div style="color:var(--primary-color);font-size:20px; font-weight:900;">▶  ⏭</div>
+    </div>
+
+    <!-- 导航栏 -->
+    <div class="tab-bar">
+      <span class="active">发现</span>
+      <span>歌单</span>
+      <span>收藏</span>
+      <span>设置</span>
+    </div>
+  </div>
+
+</body>
+</html>
