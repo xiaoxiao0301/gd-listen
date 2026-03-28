@@ -44,7 +44,7 @@ final dioProvider = Provider<Dio>((ref) {
 
   dio.interceptors.addAll([
     RateLimitInterceptor(rateLimiter),
-    RetryInterceptor(),
+    RetryInterceptor(dio),  // maxRetries = 1 (one retry per spec)
     ErrorInterceptor(),
   ]);
 

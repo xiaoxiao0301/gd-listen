@@ -1,6 +1,9 @@
+import 'package:dio/dio.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
+import '../../core/api/app_error.dart';
 import '../../core/models/song.dart';
+import '../../core/providers.dart';
 import '../settings/settings_notifier.dart';
 import 'search_repository.dart';
 
@@ -50,7 +53,9 @@ class SearchState {
 // ─── Provider ────────────────────────────────────────────────────────────────
 
 final searchRepositoryProvider = Provider<SearchRepository>((ref) {
-  return StubSearchRepository();
+  final api = ref.read(musicApiClientProvider);
+  final db = ref.read(appDatabaseProvider);
+  return ApiSearchRepository(apiClient: api, settingsDao: db.settingsDao);
 });
 
 final searchNotifierProvider =
@@ -70,11 +75,19 @@ class SearchNotifier extends AsyncNotifier<SearchState> {
     return SearchState(searchHistory: history);
   }
 
+  /// Extracts a user-friendly message from any error type.
+  static String _errorMessage(Object e) {
+    if (e is AppError) return e.message;
+    if (e is DioException && e.error is AppError) {
+      return (e.error! as AppError).message;
+    }
+    return e.toString();
+  }
+
   Future<void> search(String keyword) async {
     if (keyword.trim().isEmpty) return;
 
-    final settings =
-        await ref.read(settingsNotifierProvider.future);
+    final settings = await ref.read(settingsNotifierProvider.future);
     state = AsyncValue.data(
       state.valueOrNull?.copyWith(
             keyword: keyword,
@@ -105,7 +118,7 @@ class SearchNotifier extends AsyncNotifier<SearchState> {
       state = AsyncValue.data(
         state.valueOrNull?.copyWith(
               isLoading: false,
-              errorMessage: e.toString(),
+              errorMessage: _errorMessage(e),
             ) ??
             const SearchState(),
       );
@@ -135,9 +148,30 @@ class SearchNotifier extends AsyncNotifier<SearchState> {
       );
     } catch (e) {
       state = AsyncValue.data(
-        current.copyWith(isLoading: false, errorMessage: e.toString()),
+        current.copyWith(isLoading: false, errorMessage: _errorMessage(e)),
       );
     }
+  }
+
+  /// Clear search keyword + results, preserve history.
+  void clearSearch() {
+    state = AsyncValue.data(
+      SearchState(
+        searchHistory: state.valueOrNull?.searchHistory ?? const [],
+      ),
+    );
+  }
+
+  /// Remove a single [keyword] from search history.
+  Future<void> removeHistory(String keyword) async {
+    await _repo.removeHistory(keyword);
+    final updated = (state.valueOrNull?.searchHistory ?? [])
+        .where((k) => k != keyword)
+        .toList();
+    state = AsyncValue.data(
+      state.valueOrNull?.copyWith(searchHistory: updated) ??
+          SearchState(searchHistory: updated),
+    );
   }
 
   Future<void> clearHistory() async {

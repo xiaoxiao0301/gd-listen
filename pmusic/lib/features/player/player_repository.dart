@@ -1,3 +1,5 @@
+import '../../core/api/app_error.dart';
+import '../../core/api/music_api_client.dart';
 import '../../core/db/app_database.dart';
 import '../../core/db/daos/play_queue_dao.dart';
 import '../../core/models/enums.dart';
@@ -26,14 +28,14 @@ abstract class PlayerRepository {
 // ─── Drift implementation ────────────────────────────────────────────────────
 
 class DriftPlayerRepository implements PlayerRepository {
-  DriftPlayerRepository(AppDatabase db) : _dao = db.playQueueDao;
+  DriftPlayerRepository({
+    required AppDatabase db,
+    required MusicApiClient apiClient,
+  })  : _dao = db.playQueueDao,
+        _api = apiClient;
 
   final PlayQueueDao _dao;
-
-  // Current index is stored as a single settings-style entry in the
-  // play_queue table using position == -1 as a sentinel row.
-  // Simpler approach: keep currentIndex in a separate in-memory field
-  // (restored from a well-known row).
+  final MusicApiClient _api;
   int _savedIndex = 0;
 
   @override
@@ -46,8 +48,15 @@ class DriftPlayerRepository implements PlayerRepository {
     String source,
     AudioQuality quality,
   ) async {
-    // Real implementation connects to MusicApiClient in P1-04.
-    throw UnimplementedError('getPlayUrl not yet implemented');
+    final dto = await _api.getSongUrl(
+      source: source,
+      id: songId,
+      quality: quality.bitrate.toString(),
+    );
+    if (dto.url.isEmpty) {
+      throw const NotFoundError(resource: '播放地址');
+    }
+    return dto.url;
   }
 
   @override
@@ -59,7 +68,8 @@ class DriftPlayerRepository implements PlayerRepository {
   @override
   Future<({List<Song> queue, int index})> loadQueue() async {
     final queue = await _dao.getQueue();
-    return (queue: queue, index: _savedIndex.clamp(0, queue.isEmpty ? 0 : queue.length - 1));
+    final idx = _savedIndex.clamp(0, queue.isEmpty ? 0 : queue.length - 1);
+    return (queue: queue, index: idx);
   }
 }
 

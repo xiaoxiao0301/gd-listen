@@ -1,17 +1,26 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
-import '../core/utils/theme.dart';
 
-/// Mobile app shell with bottom navigation and a global mini player slot.
+import '../core/utils/theme.dart';
+import 'screens/full_player_screen.dart';
+import 'screens/home_screen.dart';
+import 'widgets/mini_player.dart';
+
+// ─── Design tokens ────────────────────────────────────────────────────────────
+
+const _kNavBgBlur = Color(0xFBFBF9F3);
+const _kBrand = Color(0xFF865213);
+const _kNavInactive = Color(0xFF5D5E5A);
+const _kIndicator = Color(0x1AE2A05B);
+const _kBorderTop = Color(0x1AD6C3B4);
+
+/// Mobile app shell — sticky BottomNavigationBar + glassmorphism MiniPlayer.
 ///
 /// Tab layout:
-///   0 – 发现 (Home / Search)
-///   1 – 我的歌单 (Playlists)
-///   2 – 收藏 (Favorites)
-///   3 – 设置 (Settings)
-///
-/// The [MiniPlayer] will be wired in Phase 1 (P1-09); it is kept as a
-/// placeholder here so the shell compiles immediately.
+///   0 – 发现 (HomeScreen)
+///   1 – 我的歌单 (placeholder → P2-03)
+///   2 – 收藏 (placeholder → P2-05)
+///   3 – 设置 (placeholder → P3-01)
 class MobileAppShell extends ConsumerStatefulWidget {
   const MobileAppShell({super.key});
 
@@ -22,10 +31,16 @@ class MobileAppShell extends ConsumerStatefulWidget {
 class _MobileAppShellState extends ConsumerState<MobileAppShell> {
   int _currentIndex = 0;
 
-  // Placeholder page widgets — replaced tab-by-tab as features land.
+  static const List<_NavItem> _navItems = [
+    _NavItem(label: '发现', icon: Icons.explore_outlined, activeIcon: Icons.explore),
+    _NavItem(label: '歌单', icon: Icons.library_music_outlined, activeIcon: Icons.library_music),
+    _NavItem(label: '收藏', icon: Icons.favorite_outline, activeIcon: Icons.favorite),
+    _NavItem(label: '设置', icon: Icons.settings_outlined, activeIcon: Icons.settings),
+  ];
+
   static const List<Widget> _pages = [
-    _PlaceholderPage(label: '发现', icon: Icons.search),
-    _PlaceholderPage(label: '我的歌单', icon: Icons.queue_music),
+    HomeScreen(),
+    _PlaceholderPage(label: '我的歌单', icon: Icons.library_music),
     _PlaceholderPage(label: '收藏', icon: Icons.favorite),
     _PlaceholderPage(label: '设置', icon: Icons.settings),
   ];
@@ -33,55 +48,125 @@ class _MobileAppShellState extends ConsumerState<MobileAppShell> {
   @override
   Widget build(BuildContext context) {
     return Scaffold(
+      backgroundColor: WarmColors.background,
+      extendBody: true,
       body: Stack(
+        fit: StackFit.expand,
         children: [
-          // IndexedStack keeps all tab states alive.
-          IndexedStack(
-            index: _currentIndex,
-            children: _pages,
-          ),
-          // ── Mini Player slot ───────────────────────────────────────────
-          // Will be replaced by the real MiniPlayer widget in P1-09.
-          const Positioned(
-            bottom: kBottomNavigationBarHeight,
+          IndexedStack(index: _currentIndex, children: _pages),
+          Positioned(
+            bottom: kBottomNavigationBarHeight + 8,
             left: 0,
             right: 0,
-            child: _MiniPlayerPlaceholder(),
+            child: MiniPlayer(
+              onTap: () => pushFullPlayer(context),
+            ),
           ),
         ],
       ),
-      bottomNavigationBar: BottomNavigationBar(
-        currentIndex: _currentIndex,
+      bottomNavigationBar: _WarmBottomNav(
+        selectedIndex: _currentIndex,
+        items: _navItems,
         onTap: (i) => setState(() => _currentIndex = i),
-        items: const [
-          BottomNavigationBarItem(
-            icon: Icon(Icons.search),
-            label: '发现',
-          ),
-          BottomNavigationBarItem(
-            icon: Icon(Icons.queue_music),
-            label: '歌单',
-          ),
-          BottomNavigationBarItem(
-            icon: Icon(Icons.favorite_border),
-            activeIcon: Icon(Icons.favorite),
-            label: '收藏',
-          ),
-          BottomNavigationBarItem(
-            icon: Icon(Icons.settings),
-            label: '设置',
-          ),
-        ],
       ),
     );
   }
 }
 
-// ── Internal placeholders ─────────────────────────────────────────────────────
+// ─── Custom bottom navigation bar ────────────────────────────────────────────
+
+class _WarmBottomNav extends StatelessWidget {
+  const _WarmBottomNav({
+    required this.selectedIndex,
+    required this.items,
+    required this.onTap,
+  });
+
+  final int selectedIndex;
+  final List<_NavItem> items;
+  final ValueChanged<int> onTap;
+
+  @override
+  Widget build(BuildContext context) {
+    final bottomPadding = MediaQuery.of(context).padding.bottom;
+    return Container(
+      height: kBottomNavigationBarHeight + bottomPadding,
+      decoration: const BoxDecoration(
+        color: _kNavBgBlur,
+        border: Border(top: BorderSide(color: _kBorderTop, width: 1)),
+        boxShadow: [
+          BoxShadow(
+            color: Color(0x0F865213),
+            blurRadius: 32,
+            offset: Offset(0, -8),
+          ),
+        ],
+      ),
+      child: Padding(
+        padding: EdgeInsets.only(left: 8, right: 8, bottom: bottomPadding),
+        child: Row(
+          mainAxisAlignment: MainAxisAlignment.spaceAround,
+          children: List.generate(items.length, (i) {
+            final item = items[i];
+            final isActive = i == selectedIndex;
+            return GestureDetector(
+              behavior: HitTestBehavior.opaque,
+              onTap: () => onTap(i),
+              child: AnimatedContainer(
+                duration: const Duration(milliseconds: 200),
+                padding:
+                    const EdgeInsets.symmetric(horizontal: 16, vertical: 6),
+                decoration: BoxDecoration(
+                  color: isActive ? _kIndicator : Colors.transparent,
+                  borderRadius: BorderRadius.circular(12),
+                ),
+                child: Column(
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    Icon(
+                      isActive ? item.activeIcon : item.icon,
+                      color: isActive ? _kBrand : _kNavInactive,
+                      size: 24,
+                    ),
+                    const SizedBox(height: 2),
+                    Text(
+                      item.label,
+                      style: TextStyle(
+                        fontSize: 10,
+                        fontWeight: FontWeight.w600,
+                        color: isActive ? _kBrand : _kNavInactive,
+                        letterSpacing: 0.8,
+                        height: 1.2,
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+            );
+          }),
+        ),
+      ),
+    );
+  }
+}
+
+// ─── Nav item model ───────────────────────────────────────────────────────────
+
+class _NavItem {
+  const _NavItem({
+    required this.label,
+    required this.icon,
+    required this.activeIcon,
+  });
+  final String label;
+  final IconData icon;
+  final IconData activeIcon;
+}
+
+// ─── Placeholder pages (replaced in subsequent milestones) ───────────────────
 
 class _PlaceholderPage extends StatelessWidget {
   const _PlaceholderPage({required this.label, required this.icon});
-
   final String label;
   final IconData icon;
 
@@ -103,11 +188,8 @@ class _PlaceholderPage extends StatelessWidget {
           ),
           const SizedBox(height: 8),
           const Text(
-            '// TODO: implement',
-            style: TextStyle(
-              fontSize: 13,
-              color: WarmColors.textSecondary,
-            ),
+            '// 开发中…',
+            style: TextStyle(fontSize: 13, color: WarmColors.textSecondary),
           ),
         ],
       ),
@@ -115,36 +197,3 @@ class _PlaceholderPage extends StatelessWidget {
   }
 }
 
-/// Placeholder that occupies the mini-player slot.
-/// Will be replaced by MiniPlayer widget in P1-09.
-class _MiniPlayerPlaceholder extends StatelessWidget {
-  const _MiniPlayerPlaceholder();
-
-  @override
-  Widget build(BuildContext context) {
-    return Container(
-      height: 64,
-      margin: const EdgeInsets.symmetric(horizontal: 12, vertical: 4),
-      decoration: BoxDecoration(
-        color: WarmColors.surface,
-        borderRadius: BorderRadius.circular(20),
-        boxShadow: [
-          BoxShadow(
-            color: WarmColors.primary.withValues(alpha: 0.10),
-            blurRadius: 12,
-            offset: const Offset(0, 4),
-          ),
-        ],
-      ),
-      child: const Center(
-        child: Text(
-          '── Mini Player (P1-09) ──',
-          style: TextStyle(
-            fontSize: 12,
-            color: WarmColors.textSecondary,
-          ),
-        ),
-      ),
-    );
-  }
-}

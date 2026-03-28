@@ -1,7 +1,7 @@
 import 'package:just_audio/just_audio.dart' as ja;
 
 /// Thin wrapper around [ja.AudioPlayer] that exposes only what
-/// [PlayerNotifier] needs.  The audio_session setup is deferred to P1-08.
+/// [PlayerNotifier] needs.
 class JustAudioPlayer {
   JustAudioPlayer() : _player = ja.AudioPlayer();
 
@@ -21,7 +21,9 @@ class JustAudioPlayer {
 
   Future<void> play() => _player.play();
   Future<void> pause() => _player.pause();
+  Future<void> stop() => _player.stop();
   Future<void> seekTo(Duration position) => _player.seek(position);
+  Future<void> setVolume(double volume) => _player.setVolume(volume);
 
   // ── Streams ───────────────────────────────────────────────────────────────
 
@@ -31,12 +33,20 @@ class JustAudioPlayer {
   /// Emits [ja.PlayerState] events from just_audio.
   Stream<ja.PlayerState> get playerStateStream => _player.playerStateStream;
 
+  /// Emits `true` each time the current track naturally reaches its end
+  /// (ProcessingState.completed while not sought).
+  Stream<void> get completionStream => _player.playerStateStream
+      .where((s) =>
+          s.processingState == ja.ProcessingState.completed && s.playing == false)
+      .map((_) {});
+
   // ── State accessors ───────────────────────────────────────────────────────
 
   bool get playing => _player.playing;
   Duration get position => _player.position;
   Duration? get duration => _player.duration;
   ja.ProcessingState get processingState => _player.processingState;
+  double get volume => _player.volume;
 
   // ── Lifecycle ─────────────────────────────────────────────────────────────
 

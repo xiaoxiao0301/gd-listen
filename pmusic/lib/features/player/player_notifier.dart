@@ -1,3 +1,5 @@
+import 'dart:math';
+
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../../core/models/enums.dart';
@@ -73,7 +75,8 @@ class AppPlayerState {
 
 final playerRepositoryProvider = Provider<PlayerRepository>((ref) {
   final db = ref.read(appDatabaseProvider);
-  return DriftPlayerRepository(db);
+  final api = ref.read(musicApiClientProvider);
+  return DriftPlayerRepository(db: db, apiClient: api);
 });
 
 final playerNotifierProvider =
@@ -86,6 +89,9 @@ final playerNotifierProvider =
 class PlayerNotifier extends AsyncNotifier<AppPlayerState> {
   late PlayerRepository _playerRepo;
   late JustAudioPlayer _audioPlayer;
+
+  // Shuffle order: list of queue indices in the order they should be played.
+  List<int> _shuffleOrder = [];
 
   @override
   Future<AppPlayerState> build() async {
@@ -112,6 +118,9 @@ class PlayerNotifier extends AsyncNotifier<AppPlayerState> {
       }
     });
 
+    // Auto-advance when track completes.
+    _audioPlayer.completionStream.listen((_) => _onTrackCompleted());
+
     final settings = await ref.read(settingsNotifierProvider.future);
     return AppPlayerState(
       queue: saved.queue,
@@ -122,17 +131,78 @@ class PlayerNotifier extends AsyncNotifier<AppPlayerState> {
     );
   }
 
+  // ── Track completion handler ───────────────────────────────────────────────
+
+  void _onTrackCompleted() {
+    final current = state.valueOrNull;
+    if (current == null || current.queue.isEmpty) return;
+
+    switch (current.playMode) {
+      case PlayMode.repeatOne:
+        _audioPlayer.seekTo(Duration.zero);
+        _audioPlayer.play();
+        break;
+      case PlayMode.shuffle:
+        _playNextShuffled(current);
+        break;
+      case PlayMode.sequence:
+        if (current.hasNext) {
+          _playAtIndex(current, current.currentIndex + 1);
+        }
+        // else: stop at end
+        break;
+      case PlayMode.repeatAll:
+        final nextIndex = (current.currentIndex + 1) % current.queue.length;
+        _playAtIndex(current, nextIndex);
+        break;
+    }
+  }
+
+  void _playNextShuffled(AppPlayerState current) {
+    if (_shuffleOrder.isEmpty) _rebuildShuffleOrder(current.queue.length);
+    final pos = _shuffleOrder.indexOf(current.currentIndex);
+    final nextPos = (pos + 1) % _shuffleOrder.length;
+    if (nextPos == 0) _rebuildShuffleOrder(current.queue.length);
+    final nextIndex = _shuffleOrder[nextPos];
+    _playAtIndex(current, nextIndex);
+  }
+
+  void _rebuildShuffleOrder(int length) {
+    _shuffleOrder = List.generate(length, (i) => i)..shuffle(Random());
+  }
+
+  void _playAtIndex(AppPlayerState current, int index) {
+    final song = current.queue[index];
+    // Fire and forget — errors handled inside playSong
+    playSong(song, queue: current.queue, startIndex: index);
+  }
+
   // ── Public API ─────────────────────────────────────────────────────────────
 
-  Future<void> playSong(Song song) async {
+  /// Play [song], optionally replacing the queue.
+  Future<void> playSong(
+    Song song, {
+    List<Song>? queue,
+    int? startIndex,
+  }) async {
     final current = state.valueOrNull ?? const AppPlayerState();
+    final newQueue = queue ?? (current.queue.isEmpty ? [song] : current.queue);
+    final newIndex = startIndex ??
+        newQueue.indexWhere((s) => s.id == song.id && s.source == song.source);
+    final effectiveIndex = newIndex.clamp(0, newQueue.length - 1);
+
     state = AsyncValue.data(
       current.copyWith(
         currentSong: song,
+        queue: newQueue,
+        currentIndex: effectiveIndex,
         isBuffering: true,
+        isPlaying: false,
+        position: Duration.zero,
         clearError: true,
       ),
     );
+
     try {
       final settings = await ref.read(settingsNotifierProvider.future);
       final localPath =
@@ -145,17 +215,21 @@ class PlayerNotifier extends AsyncNotifier<AppPlayerState> {
           );
       await _audioPlayer.setSource(source);
       await _audioPlayer.play();
+      // Persist queue
+      unawaited(_playerRepo.saveQueue(newQueue, effectiveIndex));
+      // Record history
+      unawaited(ref.read(historyRepositoryProvider).addEntry(song));
+
       state = AsyncValue.data(
-        current.copyWith(
+        (state.valueOrNull ?? current).copyWith(
           currentSong: song,
           isPlaying: true,
           isBuffering: false,
         ),
       );
-      ref.read(historyRepositoryProvider).addEntry(song);
     } catch (e) {
       state = AsyncValue.data(
-        current.copyWith(
+        (state.valueOrNull ?? current).copyWith(
           isBuffering: false,
           isPlaying: false,
           errorMessage: e.toString(),
@@ -166,7 +240,7 @@ class PlayerNotifier extends AsyncNotifier<AppPlayerState> {
 
   Future<void> togglePlay() async {
     final current = state.valueOrNull;
-    if (current == null) return;
+    if (current == null || current.currentSong == null) return;
     if (current.isPlaying) {
       await _audioPlayer.pause();
       state = AsyncValue.data(current.copyWith(isPlaying: false));
@@ -178,46 +252,111 @@ class PlayerNotifier extends AsyncNotifier<AppPlayerState> {
 
   Future<void> seekTo(Duration position) async {
     await _audioPlayer.seekTo(position);
+    final current = state.valueOrNull;
+    if (current != null) {
+      state = AsyncValue.data(current.copyWith(position: position));
+    }
   }
 
   Future<void> skipToNext() async {
     final current = state.valueOrNull;
-    if (current == null || !current.hasNext) return;
-    await playSong(current.queue[current.currentIndex + 1]);
-    state = AsyncValue.data(
-      state.valueOrNull?.copyWith(
-            currentIndex: current.currentIndex + 1,
-          ) ??
-          current,
-    );
+    if (current == null || current.queue.isEmpty) return;
+    if (current.playMode == PlayMode.shuffle) {
+      _playNextShuffled(current);
+      return;
+    }
+    if (!current.hasNext) {
+      if (current.playMode == PlayMode.repeatAll) {
+        _playAtIndex(current, 0);
+      }
+      return;
+    }
+    _playAtIndex(current, current.currentIndex + 1);
   }
 
   Future<void> skipToPrevious() async {
     final current = state.valueOrNull;
-    if (current == null || !current.hasPrevious) return;
-    await playSong(current.queue[current.currentIndex - 1]);
-    state = AsyncValue.data(
-      state.valueOrNull?.copyWith(
-            currentIndex: current.currentIndex - 1,
-          ) ??
-          current,
-    );
+    if (current == null || current.queue.isEmpty) return;
+    // If more than 3s into a track, restart it; otherwise go to previous.
+    if (current.position.inSeconds > 3) {
+      await seekTo(Duration.zero);
+      return;
+    }
+    if (!current.hasPrevious) return;
+    _playAtIndex(current, current.currentIndex - 1);
   }
 
   Future<void> setQueue(List<Song> songs, {int startIndex = 0}) async {
-    await _playerRepo.saveQueue(songs, startIndex);
+    final idx = startIndex.clamp(0, songs.isEmpty ? 0 : songs.length - 1);
+    unawaited(_playerRepo.saveQueue(songs, idx));
     state = AsyncValue.data(
       (state.valueOrNull ?? const AppPlayerState()).copyWith(
         queue: songs,
-        currentIndex: startIndex,
+        currentIndex: idx,
       ),
     );
-    if (songs.isNotEmpty) await playSong(songs[startIndex]);
+    if (songs.isNotEmpty) await playSong(songs[idx]);
   }
 
   Future<void> setPlayMode(PlayMode mode) async {
-    state = AsyncValue.data(
-      (state.valueOrNull ?? const AppPlayerState()).copyWith(playMode: mode),
-    );
+    final current = state.valueOrNull ?? const AppPlayerState();
+    if (mode == PlayMode.shuffle && _shuffleOrder.isEmpty) {
+      _rebuildShuffleOrder(current.queue.length);
+    }
+    state = AsyncValue.data(current.copyWith(playMode: mode));
+  }
+
+  Future<void> addToQueue(Song song) async {
+    final current = state.valueOrNull ?? const AppPlayerState();
+    final newQueue = [...current.queue, song];
+    state = AsyncValue.data(current.copyWith(queue: newQueue));
+    unawaited(_playerRepo.saveQueue(newQueue, current.currentIndex));
+  }
+
+  Future<void> insertNext(Song song) async {
+    final current = state.valueOrNull ?? const AppPlayerState();
+    final newQueue = List<Song>.from(current.queue);
+    final at = (current.currentIndex + 1).clamp(0, newQueue.length);
+    newQueue.insert(at, song);
+    state = AsyncValue.data(current.copyWith(queue: newQueue));
+    unawaited(_playerRepo.saveQueue(newQueue, current.currentIndex));
+  }
+
+  Future<void> removeFromQueue(int index) async {
+    final current = state.valueOrNull ?? const AppPlayerState();
+    if (index < 0 || index >= current.queue.length) return;
+    final newQueue = List<Song>.from(current.queue)..removeAt(index);
+    var ci = current.currentIndex;
+    if (index < ci) ci--;
+    ci = ci.clamp(0, newQueue.isEmpty ? 0 : newQueue.length - 1);
+    state = AsyncValue.data(current.copyWith(queue: newQueue, currentIndex: ci));
+    unawaited(_playerRepo.saveQueue(newQueue, ci));
+  }
+
+  Future<void> reorderQueue(int oldIndex, int newIndex) async {
+    final current = state.valueOrNull ?? const AppPlayerState();
+    final newQueue = List<Song>.from(current.queue);
+    final song = newQueue.removeAt(oldIndex);
+    final at = newIndex > oldIndex ? newIndex - 1 : newIndex;
+    newQueue.insert(at, song);
+    var ci = current.currentIndex;
+    if (oldIndex == ci) {
+      ci = at;
+    } else if (oldIndex < ci && at >= ci) {
+      ci--;
+    } else if (oldIndex > ci && at <= ci) {
+      ci++;
+    }
+    state = AsyncValue.data(current.copyWith(queue: newQueue, currentIndex: ci));
+    unawaited(_playerRepo.saveQueue(newQueue, ci));
+  }
+
+  Future<void> clearQueue() async {
+    await _audioPlayer.stop();
+    await _playerRepo.saveQueue(const [], 0);
+    state = AsyncValue.data(const AppPlayerState());
   }
 }
+
+// ── Fire-and-forget helper ─────────────────────────────────────────────────
+void unawaited(Future<void> future) => future.catchError((_) {});

@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../core/utils/theme.dart';
+import 'screens/tv_home_screen.dart';
 
 /// TV app shell with a collapsible left sidebar and a right content area.
 ///
@@ -30,7 +31,7 @@ class _TvAppShellState extends ConsumerState<TvAppShell> {
   ];
 
   static const List<Widget> _pages = [
-    _TvPlaceholderPage(label: '发现', icon: Icons.search),
+    TvHomeScreen(),
     _TvPlaceholderPage(label: '我的歌单', icon: Icons.queue_music),
     _TvPlaceholderPage(label: '收藏', icon: Icons.favorite),
     _TvPlaceholderPage(label: '设置', icon: Icons.settings),
