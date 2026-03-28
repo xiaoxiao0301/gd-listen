@@ -1,6 +1,7 @@
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../../core/models/lyric_line.dart';
+import '../../core/providers.dart';
 import 'lyric_repository.dart';
 
 // ─── State ───────────────────────────────────────────────────────────────────
@@ -27,7 +28,8 @@ class LyricState {
 // ─── Providers ───────────────────────────────────────────────────────────────
 
 final lyricRepositoryProvider = Provider<LyricRepository>((ref) {
-  return StubLyricRepository();
+  final api = ref.read(musicApiClientProvider);
+  return ApiLyricRepository(api);
 });
 
 /// Family keyed by `(songId, source)` so each song caches its own lyric state.

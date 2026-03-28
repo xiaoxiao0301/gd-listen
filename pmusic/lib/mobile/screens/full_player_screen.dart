@@ -8,6 +8,9 @@ import '../../core/models/enums.dart';
 import '../../core/models/song.dart';
 import '../../features/favorite/favorite_notifier.dart';
 import '../../features/player/player_notifier.dart';
+import '../widgets/lyric_scroll_view.dart';
+import '../widgets/play_queue_drawer.dart';
+import 'full_lyric_screen.dart';
 
 // ─── Design tokens ────────────────────────────────────────────────────────────
 
@@ -153,7 +156,7 @@ class _FullPlayerScreenState extends ConsumerState<FullPlayerScreen>
                             const SizedBox(height: 40),
                             _buildControls(state),
                             const SizedBox(height: 48),
-                            _buildLyricsPreview(),
+                            _buildLyricsPreview(context, song),
                             const SizedBox(height: 24),
                           ],
                         ),
@@ -207,7 +210,7 @@ class _FullPlayerScreenState extends ConsumerState<FullPlayerScreen>
             ),
           ),
           GestureDetector(
-            onTap: () {/* Queue drawer — P1-10 */},
+            onTap: () => showPlayQueueDrawer(context),
             child: const Icon(Icons.queue_music, color: _kWhite90, size: 24),
           ),
         ],
@@ -481,55 +484,55 @@ class _FullPlayerScreenState extends ConsumerState<FullPlayerScreen>
 
   // ── Lyrics preview ─────────────────────────────────────────────────────────
 
-  Widget _buildLyricsPreview() {
-    // Placeholder lyrics lines — will be replaced with real LyricNotifier data in P2-09
-    const lines = [
-      ('But I miss you most of all my darling', false),
-      ('When autumn leaves start to fall', true),
-      ('Since you went away the days grow long', false),
-    ];
-
-    return Column(
-      children: [
-        ...lines.map(
-          (entry) => Padding(
-            padding: const EdgeInsets.symmetric(vertical: 8),
-            child: Text(
-              entry.$1,
-              textAlign: TextAlign.center,
-              style: TextStyle(
-                fontSize: entry.$2 ? 18 : 15,
-                fontWeight:
-                    entry.$2 ? FontWeight.w700 : FontWeight.w500,
-                color: entry.$2
-                    ? _kAmber
-                    : Colors.black.withValues(alpha: 0.35),
-                height: 1.4,
-              ),
+  Widget _buildLyricsPreview(BuildContext context, Song song) {
+    return GestureDetector(
+      onTap: () => Navigator.push(
+        context,
+        MaterialPageRoute(builder: (_) => const FullLyricScreen()),
+      ),
+      onVerticalDragEnd: (details) {
+        if (details.primaryVelocity != null &&
+            details.primaryVelocity! < -200) {
+          Navigator.push(
+            context,
+            MaterialPageRoute(builder: (_) => const FullLyricScreen()),
+          );
+        }
+      },
+      child: Column(
+        children: [
+          SizedBox(
+            height: 120,
+            child: LyricScrollView(
+              songId: song.id,
+              source: song.source.param,
+              previewMode: true,
+              // Design (full_player): active line = text-primary = #865213
+              activeLineColor: _kGradientMid,
             ),
           ),
-        ),
-        const SizedBox(height: 20),
-        const Column(
-          children: [
-            Text(
-              '上滑查看全部歌词',
-              style: TextStyle(
-                fontSize: 10,
-                fontWeight: FontWeight.w700,
-                color: _kAmber,
-                letterSpacing: 2.5,
+          const SizedBox(height: 20),
+          const Column(
+            children: [
+              Text(
+                '上滑查看全部歌词',
+                style: TextStyle(
+                  fontSize: 10,
+                  fontWeight: FontWeight.w700,
+                  color: _kAmber,
+                  letterSpacing: 2.5,
+                ),
               ),
-            ),
-            SizedBox(height: 4),
-            Icon(
-              Icons.keyboard_double_arrow_up,
-              color: _kAmber,
-              size: 16,
-            ),
-          ],
-        ),
-      ],
+              SizedBox(height: 4),
+              Icon(
+                Icons.keyboard_double_arrow_up,
+                color: _kAmber,
+                size: 16,
+              ),
+            ],
+          ),
+        ],
+      ),
     );
   }
 }

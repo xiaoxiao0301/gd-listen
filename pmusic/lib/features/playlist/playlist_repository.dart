@@ -1,3 +1,5 @@
+import '../../core/db/app_database.dart';
+import '../../core/db/daos/playlists_dao.dart';
 import '../../core/models/playlist.dart';
 import '../../core/models/song.dart';
 
@@ -12,6 +14,48 @@ abstract class PlaylistRepository {
   Future<void> addSong(int playlistId, Song song);
   Future<void> removeSong(int playlistId, String songId);
   Future<void> reorderSongs(int playlistId, int oldIndex, int newIndex);
+}
+
+// ─── Drift implementation ─────────────────────────────────────────────────────
+
+class DriftPlaylistRepository implements PlaylistRepository {
+  DriftPlaylistRepository(AppDatabase db) : _dao = db.playlistsDao;
+
+  final PlaylistsDao _dao;
+
+  @override
+  Future<List<Playlist>> getAll() => _dao.getAll();
+
+  @override
+  Future<Playlist> create(String name) => _dao.create(name);
+
+  @override
+  Future<void> rename(int id, String newName) => _dao.rename(id, newName);
+
+  @override
+  Future<void> delete(int id) => _dao.deletePlaylist(id);
+
+  @override
+  Future<List<Song>> getSongs(int playlistId) => _dao.getSongs(playlistId);
+
+  @override
+  Future<void> addSong(int playlistId, Song song) =>
+      _dao.addSong(playlistId, song);
+
+  @override
+  Future<void> removeSong(int playlistId, String songId) async {
+    // Source not carried in the existing interface; look up from songs list.
+    final songs = await _dao.getSongs(playlistId);
+    final match = songs.where((s) => s.id == songId).firstOrNull;
+    if (match != null) {
+      await _dao.removeSong(playlistId, songId, match.source.param);
+    }
+  }
+
+  @override
+  Future<void> reorderSongs(
+          int playlistId, int oldIndex, int newIndex) =>
+      _dao.reorderSongs(playlistId, oldIndex, newIndex);
 }
 
 // ─── Stub ─────────────────────────────────────────────────────────────────────

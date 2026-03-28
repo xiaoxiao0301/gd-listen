@@ -1,6 +1,7 @@
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../../core/models/song.dart';
+import '../../core/providers.dart';
 import 'favorite_repository.dart';
 
 // ─── State ───────────────────────────────────────────────────────────────────
@@ -28,7 +29,8 @@ class FavoriteState {
 // ─── Providers ───────────────────────────────────────────────────────────────
 
 final favoriteRepositoryProvider = Provider<FavoriteRepository>((ref) {
-  return InMemoryFavoriteRepository();
+  final db = ref.read(appDatabaseProvider);
+  return DriftFavoriteRepository(db);
 });
 
 final favoriteNotifierProvider =
@@ -44,8 +46,14 @@ class FavoriteNotifier extends AsyncNotifier<FavoriteState> {
   @override
   Future<FavoriteState> build() async {
     _repo = ref.read(favoriteRepositoryProvider);
-    final songs = await _repo.getAll();
-    return FavoriteState(songs: songs);
+    // Subscribe to the Drift stream so any change propagates instantly.
+    final sub = _repo.watchAll().listen((songs) {
+      state = AsyncValue.data(FavoriteState(songs: songs));
+    });
+    ref.onDispose(sub.cancel);
+    // Return initial snapshot (stream may not emit synchronously).
+    final initialSongs = await _repo.getAll();
+    return FavoriteState(songs: initialSongs);
   }
 
   Future<void> toggle(Song song) async {
@@ -55,7 +63,14 @@ class FavoriteNotifier extends AsyncNotifier<FavoriteState> {
     } else {
       await _repo.add(song);
     }
-    final songs = await _repo.getAll();
-    state = AsyncValue.data(current.copyWith(songs: songs));
+    // The watchAll() stream will push the updated list automatically.
+  }
+
+  /// Removes multiple songs from favorites at once (batch operation).
+  Future<void> batchRemove(List<Song> songs) async {
+    for (final song in songs) {
+      await _repo.remove(song.id, song.source.param);
+    }
+    // The watchAll() stream will push the updated list automatically.
   }
 }

@@ -6,6 +6,7 @@ import '../../core/api/app_error.dart';
 import '../../core/api/models/song_dto.dart';
 import '../../core/api/music_api_client.dart';
 import '../../core/db/daos/settings_dao.dart';
+import '../../core/db/daos/songs_dao.dart';
 import '../../core/models/song.dart';
 import '../../core/models/enums.dart';
 
@@ -17,6 +18,7 @@ abstract class SearchRepository {
     required String keyword,
     int page = 1,
     int pageSize = 20,
+    bool albumMode = false,
   });
 
   Future<List<String>> loadHistory();
@@ -34,11 +36,14 @@ class ApiSearchRepository implements SearchRepository {
   ApiSearchRepository({
     required MusicApiClient apiClient,
     required SettingsDao settingsDao,
+    required SongsDao songsDao,
   })  : _api = apiClient,
-        _settings = settingsDao;
+        _settings = settingsDao,
+        _songs = songsDao;
 
   final MusicApiClient _api;
   final SettingsDao _settings;
+  final SongsDao _songs;
 
   static const _historyKey = 'search_history';
   static const _maxHistory = 20;
@@ -49,15 +54,24 @@ class ApiSearchRepository implements SearchRepository {
     required String keyword,
     int page = 1,
     int pageSize = 20,
+    bool albumMode = false,
   }) async {
+    // Offline guard — throw immediately, don't attempt network call.
+    final offlineRaw = await _settings.get(SettingKeys.offlineMode);
+    if (offlineRaw == 'true') throw const OfflineError();
+
     try {
       final dtos = await _api.searchSongs(
         source: source.param,
         keyword: keyword,
         page: page,
         pageSize: pageSize,
+        albumMode: albumMode,
       );
-      return dtos.map((dto) => dto.toDomain()).toList();
+      final songs = dtos.map((dto) => dto.toDomain()).toList();
+      // Cache search results locally for offline access.
+      await _songs.upsertAll(songs);
+      return songs;
     } on DioException catch (e) {
       // ErrorInterceptor attaches a typed AppError to DioException.error.
       if (e.error is AppError) throw e.error! as AppError;
@@ -108,6 +122,7 @@ class StubSearchRepository implements SearchRepository {
     required String keyword,
     int page = 1,
     int pageSize = 20,
+    bool albumMode = false,
   }) async =>
       const [];
 

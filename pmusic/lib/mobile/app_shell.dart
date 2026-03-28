@@ -2,8 +2,13 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../core/utils/theme.dart';
+import '../features/player/player_notifier.dart';
+import '../features/search/search_notifier.dart';
+import 'screens/favorite_screen.dart';
 import 'screens/full_player_screen.dart';
 import 'screens/home_screen.dart';
+import 'screens/playlist_screen.dart';
+import 'screens/settings_screen.dart';
 import 'widgets/mini_player.dart';
 
 // ─── Design tokens ────────────────────────────────────────────────────────────
@@ -40,13 +45,41 @@ class _MobileAppShellState extends ConsumerState<MobileAppShell> {
 
   static const List<Widget> _pages = [
     HomeScreen(),
-    _PlaceholderPage(label: '我的歌单', icon: Icons.library_music),
-    _PlaceholderPage(label: '收藏', icon: Icons.favorite),
-    _PlaceholderPage(label: '设置', icon: Icons.settings),
+    PlaylistScreen(),
+    FavoriteScreen(),
+    SettingsScreen(),
   ];
 
   @override
   Widget build(BuildContext context) {
+    // P3-06: Global error toasts from player and search.
+    ref.listen<AsyncValue<AppPlayerState>>(playerNotifierProvider, (prev, next) {
+      final prevMsg = prev?.valueOrNull?.errorMessage;
+      final nextMsg = next.valueOrNull?.errorMessage;
+      if (nextMsg != null && nextMsg.isNotEmpty && nextMsg != prevMsg) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text(nextMsg),
+            backgroundColor: const Color(0xFFBA1A1A),
+            behavior: SnackBarBehavior.floating,
+          ),
+        );
+      }
+    });
+    ref.listen<AsyncValue<SearchState>>(searchNotifierProvider, (prev, next) {
+      final prevMsg = prev?.valueOrNull?.errorMessage;
+      final nextMsg = next.valueOrNull?.errorMessage;
+      if (nextMsg != null && nextMsg.isNotEmpty && nextMsg != prevMsg) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text(nextMsg),
+            backgroundColor: const Color(0xFFBA1A1A),
+            behavior: SnackBarBehavior.floating,
+          ),
+        );
+      }
+    });
+
     return Scaffold(
       backgroundColor: WarmColors.background,
       extendBody: true,
@@ -163,37 +196,4 @@ class _NavItem {
   final IconData activeIcon;
 }
 
-// ─── Placeholder pages (replaced in subsequent milestones) ───────────────────
-
-class _PlaceholderPage extends StatelessWidget {
-  const _PlaceholderPage({required this.label, required this.icon});
-  final String label;
-  final IconData icon;
-
-  @override
-  Widget build(BuildContext context) {
-    return Center(
-      child: Column(
-        mainAxisSize: MainAxisSize.min,
-        children: [
-          Icon(icon, size: 48, color: WarmColors.primary),
-          const SizedBox(height: 12),
-          Text(
-            label,
-            style: const TextStyle(
-              fontSize: 20,
-              fontWeight: FontWeight.w600,
-              color: WarmColors.textPrimary,
-            ),
-          ),
-          const SizedBox(height: 8),
-          const Text(
-            '// 开发中…',
-            style: TextStyle(fontSize: 13, color: WarmColors.textSecondary),
-          ),
-        ],
-      ),
-    );
-  }
-}
 

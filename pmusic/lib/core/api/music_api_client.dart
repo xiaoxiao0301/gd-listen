@@ -31,12 +31,13 @@ class MusicApiClient {
   // Search
   // ---------------------------------------------------------------------------
 
-  /// Search for songs.
+  /// Search for songs (or albums when [albumMode] is true).
   Future<List<SongDto>> searchSongs({
     required String source,
     required String keyword,
     int page = 1,
     int pageSize = 20,
+    bool albumMode = false,
   }) async {
     final resp = await _dio.get<dynamic>(_baseUrl, queryParameters: {
       'types': 'search',
@@ -44,6 +45,7 @@ class MusicApiClient {
       'name': keyword,
       'page': page,
       'count': pageSize,
+      if (albumMode) 'type': 'album',
     });
     final data = resp.data;
     if (data is List) {

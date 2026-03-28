@@ -18,6 +18,7 @@ class SearchState {
     this.isLoading = false,
     this.hasMore = true,
     this.errorMessage,
+    this.albumMode = false,
   });
 
   final String keyword;
@@ -28,6 +29,9 @@ class SearchState {
   final bool hasMore;
   final String? errorMessage;
 
+  /// When true, results are intended to be displayed as albums (grouped by album name).
+  final bool albumMode;
+
   SearchState copyWith({
     String? keyword,
     List<Song>? results,
@@ -37,6 +41,7 @@ class SearchState {
     bool? hasMore,
     String? errorMessage,
     bool clearError = false,
+    bool? albumMode,
   }) {
     return SearchState(
       keyword: keyword ?? this.keyword,
@@ -46,6 +51,7 @@ class SearchState {
       isLoading: isLoading ?? this.isLoading,
       hasMore: hasMore ?? this.hasMore,
       errorMessage: clearError ? null : (errorMessage ?? this.errorMessage),
+      albumMode: albumMode ?? this.albumMode,
     );
   }
 }
@@ -55,7 +61,11 @@ class SearchState {
 final searchRepositoryProvider = Provider<SearchRepository>((ref) {
   final api = ref.read(musicApiClientProvider);
   final db = ref.read(appDatabaseProvider);
-  return ApiSearchRepository(apiClient: api, settingsDao: db.settingsDao);
+  return ApiSearchRepository(
+    apiClient: api,
+    settingsDao: db.settingsDao,
+    songsDao: db.songsDao,
+  );
 });
 
 final searchNotifierProvider =
@@ -88,6 +98,7 @@ class SearchNotifier extends AsyncNotifier<SearchState> {
     if (keyword.trim().isEmpty) return;
 
     final settings = await ref.read(settingsNotifierProvider.future);
+    final albumMode = state.valueOrNull?.albumMode ?? false;
     state = AsyncValue.data(
       state.valueOrNull?.copyWith(
             keyword: keyword,
@@ -103,6 +114,7 @@ class SearchNotifier extends AsyncNotifier<SearchState> {
       final results = await _repo.search(
         source: settings.defaultSource,
         keyword: keyword,
+        albumMode: albumMode,
       );
       await _repo.addHistory(keyword);
       final history = await _repo.loadHistory();
@@ -112,6 +124,7 @@ class SearchNotifier extends AsyncNotifier<SearchState> {
           results: results,
           searchHistory: history,
           hasMore: results.length >= 20,
+          albumMode: albumMode,
         ),
       );
     } catch (e) {
@@ -122,6 +135,15 @@ class SearchNotifier extends AsyncNotifier<SearchState> {
             ) ??
             const SearchState(),
       );
+    }
+  }
+
+  /// Toggle between song search mode and album search mode.
+  Future<void> setAlbumMode(bool value) async {
+    final current = state.valueOrNull ?? const SearchState();
+    state = AsyncValue.data(current.copyWith(albumMode: value));
+    if (current.keyword.isNotEmpty) {
+      await search(current.keyword);
     }
   }
 
@@ -137,6 +159,7 @@ class SearchNotifier extends AsyncNotifier<SearchState> {
         source: settings.defaultSource,
         keyword: current.keyword,
         page: current.currentPage + 1,
+        albumMode: current.albumMode,
       );
       state = AsyncValue.data(
         current.copyWith(

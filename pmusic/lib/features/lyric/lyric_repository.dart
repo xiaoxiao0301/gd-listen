@@ -1,3 +1,9 @@
+import 'dart:convert';
+import 'dart:io';
+
+import 'package:path_provider/path_provider.dart';
+
+import '../../core/api/music_api_client.dart';
 import '../../core/models/lyric_line.dart';
 
 // ─── Repository interface ────────────────────────────────────────────────────
@@ -7,6 +13,59 @@ abstract class LyricRepository {
   ///
   /// Returns an empty list when no lyrics are available.
   Future<List<LyricLine>> getLyrics(String songId, String source);
+}
+
+// ─── API + file-cache implementation ────────────────────────────────────────
+
+/// Fetches LRC lyrics via [MusicApiClient]; caches raw JSON to
+/// `<app_cache_dir>/lyrics/<source>_<id>.json` to avoid repeat network calls.
+class ApiLyricRepository implements LyricRepository {
+  ApiLyricRepository(this._api);
+
+  final MusicApiClient _api;
+  Directory? _cacheDir;
+
+  Future<Directory> _getCacheDir() async {
+    if (_cacheDir != null) return _cacheDir!;
+    final base = await getApplicationCacheDirectory();
+    _cacheDir = Directory('${base.path}/lyrics');
+    await _cacheDir!.create(recursive: true);
+    return _cacheDir!;
+  }
+
+  @override
+  Future<List<LyricLine>> getLyrics(String songId, String source) async {
+    final dir = await _getCacheDir();
+    final file = File('${dir.path}/${source}_$songId.json');
+
+    // Cache hit
+    if (await file.exists()) {
+      try {
+        final json = jsonDecode(await file.readAsString()) as Map<String, dynamic>;
+        final lrc = json['lyric'] as String? ?? '';
+        if (lrc.isNotEmpty) {
+          return parseLrc(lrc, translationLrc: json['tlyric'] as String?);
+        }
+      } catch (_) {
+        // Corrupted cache — delete and re-fetch.
+        await file.delete();
+      }
+    }
+
+    // Network fetch
+    final dto = await _api.getLyric(source: source, id: songId);
+    if (dto.lyric.isEmpty) return [];
+
+    // Persist to cache (best-effort)
+    try {
+      await file.writeAsString(jsonEncode({
+        'lyric': dto.lyric,
+        'tlyric': dto.tlyric,
+      }));
+    } catch (_) {}
+
+    return parseLrc(dto.lyric, translationLrc: dto.tlyric);
+  }
 }
 
 // ─── Stub ─────────────────────────────────────────────────────────────────────

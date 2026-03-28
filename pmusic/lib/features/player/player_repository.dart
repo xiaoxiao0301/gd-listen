@@ -1,6 +1,9 @@
+import 'dart:io';
+
 import '../../core/api/app_error.dart';
 import '../../core/api/music_api_client.dart';
 import '../../core/db/app_database.dart';
+import '../../core/db/daos/cache_dao.dart';
 import '../../core/db/daos/play_queue_dao.dart';
 import '../../core/models/enums.dart';
 import '../../core/models/song.dart';
@@ -32,15 +35,32 @@ class DriftPlayerRepository implements PlayerRepository {
     required AppDatabase db,
     required MusicApiClient apiClient,
   })  : _dao = db.playQueueDao,
+        _cacheDao = db.cacheDao,
         _api = apiClient;
 
   final PlayQueueDao _dao;
+  final CacheDao _cacheDao;
   final MusicApiClient _api;
   int _savedIndex = 0;
 
   @override
-  Future<String?> getLocalPath(String songId, String source) async =>
-      null; // wired to CacheRepository in P2-11
+  Future<String?> getLocalPath(String songId, String source) async {
+    final entry = await _cacheDao.getEntry(songId, source);
+    if (entry == null) return null;
+
+    // Verify the file still exists on disk.
+    if (!await File(entry.filePath).exists()) {
+      await _cacheDao.remove(entry.filePath);
+      return null;
+    }
+
+    // Touch lastAccessed so LRU ordering stays accurate.
+    await _cacheDao.upsert(
+      entry.copyWith(lastAccessed: DateTime.now().millisecondsSinceEpoch),
+    );
+
+    return entry.filePath;
+  }
 
   @override
   Future<String> getPlayUrl(

@@ -73,6 +73,44 @@ class PlayQueueDao extends DatabaseAccessor<AppDatabase>
     });
   }
 
+  /// Appends a single song at the end of the queue.
+  Future<void> insertSong(Song song) async {
+    // Determine next free position.
+    final rows = await (select(playQueueTable)
+          ..orderBy([(t) => OrderingTerm.desc(t.position)])
+          ..limit(1))
+        .get();
+    final nextPos = rows.isEmpty ? 0 : rows.first.position + 1;
+
+    // Ensure the song row exists.
+    await (db.into(songsTable)).insertOnConflictUpdate(
+      SongsTableCompanion(
+        id: Value(song.id),
+        source: Value(song.source.param),
+        name: Value(song.name),
+        artist: Value(jsonEncode(song.artists)),
+        album: Value(song.album),
+        picId: Value(song.picId),
+        lyricId: Value(song.lyricId),
+      ),
+    );
+
+    await into(playQueueTable).insert(
+      PlayQueueTableCompanion(
+        position: Value(nextPos),
+        songId: Value(song.id),
+        source: Value(song.source.param),
+      ),
+    );
+  }
+
+  /// Removes any queue entry matching [songId] + [source].
+  Future<void> removeBySong(String songId, String source) async {
+    await (delete(playQueueTable)
+          ..where((t) => t.songId.equals(songId) & t.source.equals(source)))
+        .go();
+  }
+
   /// Removes a single entry at [position].
   Future<void> removeAt(int position) async {
     await (delete(playQueueTable)

@@ -1,3 +1,5 @@
+import '../../core/db/app_database.dart';
+import '../../core/db/daos/history_dao.dart';
 import '../../core/models/song.dart';
 
 // ─── Models ───────────────────────────────────────────────────────────────────
@@ -37,8 +39,52 @@ class HistoryGroup {
 
 abstract class HistoryRepository {
   Future<List<HistoryEntry>> getAll();
+  Stream<List<HistoryEntry>> watchAll();
   Future<void> addEntry(Song song);
   Future<void> clear();
+}
+
+// ─── Drift implementation ─────────────────────────────────────────────────────
+
+class DriftHistoryRepository implements HistoryRepository {
+  DriftHistoryRepository(AppDatabase db) : _dao = db.historyDao;
+
+  final HistoryDao _dao;
+
+  @override
+  Stream<List<HistoryEntry>> watchAll() {
+    return _dao.watchAll().map(
+      (rows) => rows
+          .map(
+            (r) => HistoryEntry(
+              song: r.song,
+              playedAt: r.playedAt,
+              playCount: r.playCount,
+            ),
+          )
+          .toList(),
+    );
+  }
+
+  @override
+  Future<List<HistoryEntry>> getAll() async {
+    final rows = await _dao.getAll();
+    return rows
+        .map(
+          (r) => HistoryEntry(
+            song: r.song,
+            playedAt: r.playedAt,
+            playCount: r.playCount,
+          ),
+        )
+        .toList();
+  }
+
+  @override
+  Future<void> addEntry(Song song) => _dao.upsert(song);
+
+  @override
+  Future<void> clear() => _dao.clear();
 }
 
 // ─── Stub ─────────────────────────────────────────────────────────────────────
@@ -46,6 +92,10 @@ abstract class HistoryRepository {
 class InMemoryHistoryRepository implements HistoryRepository {
   // Key: "${songId}_${source}"
   final Map<String, HistoryEntry> _map = {};
+
+  /// Not reactive in the stub — emits a single snapshot.
+  @override
+  Stream<List<HistoryEntry>> watchAll() => Stream.fromFuture(getAll());
 
   @override
   Future<List<HistoryEntry>> getAll() async {

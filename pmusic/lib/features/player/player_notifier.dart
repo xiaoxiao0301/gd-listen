@@ -1,10 +1,18 @@
+import 'dart:io';
 import 'dart:math';
 
+import 'package:dio/dio.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:path_provider/path_provider.dart';
 
+import '../../core/models/cache_entry.dart';
+import '../../core/models/app_settings.dart';
 import '../../core/models/enums.dart';
 import '../../core/models/song.dart';
 import '../../core/providers.dart';
+import '../cache/cache_manager.dart';
+import '../cache/cache_notifier.dart';
+import '../cache/cache_repository.dart';
 import '../history/history_notifier.dart';
 import '../settings/settings_notifier.dart';
 import 'just_audio_player.dart';
@@ -89,6 +97,9 @@ final playerNotifierProvider =
 class PlayerNotifier extends AsyncNotifier<AppPlayerState> {
   late PlayerRepository _playerRepo;
   late JustAudioPlayer _audioPlayer;
+  late CacheManager _cacheManager;
+  late CacheRepository _cacheRepo;
+  late Dio _downloadDio;
 
   // Shuffle order: list of queue indices in the order they should be played.
   List<int> _shuffleOrder = [];
@@ -97,7 +108,14 @@ class PlayerNotifier extends AsyncNotifier<AppPlayerState> {
   Future<AppPlayerState> build() async {
     _playerRepo = ref.read(playerRepositoryProvider);
     _audioPlayer = JustAudioPlayer();
+    _cacheRepo = ref.read(cacheRepositoryProvider);
+    _cacheManager = ref.read(cacheManagerProvider);
+    _downloadDio = Dio(BaseOptions(
+      connectTimeout: const Duration(seconds: 30),
+      receiveTimeout: const Duration(minutes: 10),
+    ));
     ref.onDispose(_audioPlayer.dispose);
+    ref.onDispose(_downloadDio.close);
 
     // Restore last queue from persistence.
     final saved = await _playerRepo.loadQueue();
@@ -207,18 +225,35 @@ class PlayerNotifier extends AsyncNotifier<AppPlayerState> {
       final settings = await ref.read(settingsNotifierProvider.future);
       final localPath =
           await _playerRepo.getLocalPath(song.id, song.source.param);
-      final source = localPath ??
+
+      // Offline guard: if offline and no local cache, skip this song.
+      if (settings.offlineMode && localPath == null) {
+        state = AsyncValue.data(
+          (state.valueOrNull ?? current).copyWith(
+            isBuffering: false,
+            isPlaying: false,
+            errorMessage: '当前离线，「${song.name}」未缓存',
+          ),
+        );
+        return;
+      }
+
+      final playSource = localPath ??
           await _playerRepo.getPlayUrl(
             song.id,
             song.source.param,
             settings.audioQuality,
           );
-      await _audioPlayer.setSource(source);
+      await _audioPlayer.setSource(playSource);
       await _audioPlayer.play();
       // Persist queue
       unawaited(_playerRepo.saveQueue(newQueue, effectiveIndex));
       // Record history
       unawaited(ref.read(historyRepositoryProvider).addEntry(song));
+      // Background: cache audio file if we used a remote URL
+      if (localPath == null) {
+        unawaited(_downloadAndCacheSong(song, playSource, settings));
+      }
 
       state = AsyncValue.data(
         (state.valueOrNull ?? current).copyWith(
@@ -235,6 +270,52 @@ class PlayerNotifier extends AsyncNotifier<AppPlayerState> {
           errorMessage: e.toString(),
         ),
       );
+    }
+  }
+
+  /// Downloads [remoteUrl] to the local audio cache directory and records the
+  /// entry in the database. Uses a temporary file to ensure atomicity: the
+  /// final path is only written to the DB after a successful rename.
+  Future<void> _downloadAndCacheSong(
+    Song song,
+    String remoteUrl,
+    AppSettings settings,
+  ) async {
+    final base = await getApplicationCacheDirectory();
+    final audioDir = Directory('${base.path}/audio');
+    await audioDir.create(recursive: true);
+
+    final destPath =
+        '${audioDir.path}/${song.source.param}_${song.id}.mp3';
+    final tmpPath = '$destPath.tmp';
+
+    // Skip if already cached on disk (e.g. concurrent play calls).
+    if (await File(destPath).exists()) return;
+
+    try {
+      await _downloadDio.download(remoteUrl, tmpPath);
+
+      final tmpFile = File(tmpPath);
+      final sizeKb = ((await tmpFile.length()) / 1024).ceil();
+
+      // Ensure LRU eviction before committing the new file.
+      await _cacheManager.ensureSpace(sizeKb, settings.cacheMaxMb);
+
+      // Atomic rename: only the final path is registered in the DB.
+      await tmpFile.rename(destPath);
+
+      await _cacheRepo.add(CacheEntry(
+        filePath: destPath,
+        songId: song.id,
+        source: song.source.param,
+        fileSizeKb: sizeKb,
+        lastAccessed: DateTime.now().millisecondsSinceEpoch,
+      ));
+    } catch (_) {
+      // Best-effort caching; clean up temp file silently.
+      try {
+        await File(tmpPath).delete();
+      } catch (_) {}
     }
   }
 
@@ -355,6 +436,15 @@ class PlayerNotifier extends AsyncNotifier<AppPlayerState> {
     await _audioPlayer.stop();
     await _playerRepo.saveQueue(const [], 0);
     state = AsyncValue.data(const AppPlayerState());
+  }
+
+  /// Jump to a specific index in the current queue.
+  Future<void> skipToIndex(int index) async {
+    final current = state.valueOrNull;
+    if (current == null) return;
+    if (index < 0 || index >= current.queue.length) return;
+    final song = current.queue[index];
+    await playSong(song, queue: current.queue, startIndex: index);
   }
 }
 

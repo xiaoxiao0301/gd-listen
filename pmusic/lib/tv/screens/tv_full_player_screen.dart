@@ -9,6 +9,8 @@ import '../../core/api/music_api_client.dart';
 import '../../core/models/enums.dart';
 import '../../core/models/song.dart';
 import '../../features/player/player_notifier.dart';
+import '../../mobile/widgets/lyric_scroll_view.dart';
+import 'tv_full_lyric_screen.dart';
 
 // ─── Design tokens ────────────────────────────────────────────────────────────
 
@@ -179,7 +181,7 @@ class _TvFullPlayerScreenState extends ConsumerState<TvFullPlayerScreen> {
                                   child: _buildControls(state),
                                 ),
                                 const SizedBox(height: 80),
-                                _buildLyricsPreview(),
+                                _buildLyricsPreview(song),
                               ],
                             ),
                           ),
@@ -458,41 +460,42 @@ class _TvFullPlayerScreenState extends ConsumerState<TvFullPlayerScreen> {
 
   // ── Lyrics preview ─────────────────────────────────────────────────────────
 
-  Widget _buildLyricsPreview() {
-    // Placeholder 3-line preview — replaced with real lyric data in P2-09
-    const lines = [
-      ('落叶在风中寻找归宿', false),
-      ('音符编织成触手可及的温度', true),
-      ('时光在胶片的纹理中慢行', false),
-    ];
-
-    return ShaderMask(
-      shaderCallback: (bounds) => const LinearGradient(
-        begin: Alignment.topCenter,
-        end: Alignment.bottomCenter,
-        colors: [Colors.transparent, Colors.black, Colors.black, Colors.transparent],
-        stops: [0.0, 0.2, 0.8, 1.0],
-      ).createShader(bounds),
-      blendMode: BlendMode.dstIn,
-      child: Column(
-        children: lines.map((entry) {
-          return Padding(
-            padding: const EdgeInsets.symmetric(vertical: 12),
-            child: Text(
-              entry.$1,
-              style: TextStyle(
-                fontSize: entry.$2 ? 40 : 26,
-                fontWeight:
-                    entry.$2 ? FontWeight.w700 : FontWeight.w500,
-                color: entry.$2
-                    ? _kAmber
-                    : Colors.black.withValues(alpha: 0.3),
-                letterSpacing: entry.$2 ? 1.5 : 0.5,
-                height: 1.3,
-              ),
-            ),
-          );
-        }).toList(),
+  /// 3-line lyric preview with top/bottom fade mask.
+  /// Matches TV full player design: h-48 overflow-hidden lyrics-mask.
+  /// Active: #E2A05B 36sp bold  |  Non-active: #1B1C19 at 30% 24sp.
+  /// Tapping navigates to [TvFullLyricScreen].
+  Widget _buildLyricsPreview(Song song) {
+    return GestureDetector(
+      onTap: () => Navigator.push(
+        context,
+        MaterialPageRoute(builder: (_) => const TvFullLyricScreen()),
+      ),
+      child: SizedBox(
+        height: 192,
+        child: ShaderMask(
+          shaderCallback: (bounds) => const LinearGradient(
+            begin: Alignment.topCenter,
+            end: Alignment.bottomCenter,
+            colors: [
+              Colors.transparent,
+              Colors.black,
+              Colors.black,
+              Colors.transparent,
+            ],
+            stops: [0.0, 0.2, 0.8, 1.0],
+          ).createShader(bounds),
+          blendMode: BlendMode.dstIn,
+          child: LyricScrollView(
+            songId: song.id,
+            source: song.source.param,
+            previewMode: true,
+            textAlign: TextAlign.left,
+            // Design: active = text-primary-container = #E2A05B
+            activeLineColor: _kAmber,
+            // Design: non-active = text-on-background/30 = #1B1C19 at 30%
+            inactiveLineColor: const Color(0xFF1B1C19).withValues(alpha: 0.3),
+          ),
+        ),
       ),
     );
   }

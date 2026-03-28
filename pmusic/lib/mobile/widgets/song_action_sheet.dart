@@ -120,13 +120,9 @@ class _SongActionSheet extends ConsumerWidget {
             label: '添加到队列末尾',
             onTap: () async {
               Navigator.pop(context);
-              final state = ref.read(playerNotifierProvider).valueOrNull;
-              if (state != null) {
-                await ref
-                    .read(playerNotifierProvider.notifier)
-                    .setQueue([...state.queue, song],
-                        startIndex: state.currentIndex);
-              }
+              await ref
+                  .read(playerNotifierProvider.notifier)
+                  .addToQueue(song);
             },
           ),
           _ActionTile(
@@ -134,15 +130,9 @@ class _SongActionSheet extends ConsumerWidget {
             label: '下一首播放',
             onTap: () async {
               Navigator.pop(context);
-              final state = ref.read(playerNotifierProvider).valueOrNull;
-              if (state != null) {
-                final newQueue = List<Song>.from(state.queue);
-                final insertAt = state.currentIndex + 1;
-                newQueue.insert(insertAt.clamp(0, newQueue.length), song);
-                await ref
-                    .read(playerNotifierProvider.notifier)
-                    .setQueue(newQueue, startIndex: state.currentIndex);
-              }
+              await ref
+                  .read(playerNotifierProvider.notifier)
+                  .insertNext(song);
             },
           ),
           _ActionTile(

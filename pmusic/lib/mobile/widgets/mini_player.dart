@@ -78,6 +78,12 @@ class _MiniPlayerState extends ConsumerState<MiniPlayer>
           padding: const EdgeInsets.symmetric(horizontal: 12),
           child: GestureDetector(
             onTap: widget.onTap,
+            // Up-swipe navigates to full player screen.
+            onVerticalDragEnd: (details) {
+              if (details.velocity.pixelsPerSecond.dy < -200) {
+                widget.onTap?.call();
+              }
+            },
             child: ClipRRect(
               borderRadius: BorderRadius.circular(20),
               child: BackdropFilter(

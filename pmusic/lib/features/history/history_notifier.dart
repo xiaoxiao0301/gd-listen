@@ -1,5 +1,6 @@
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
+import '../../core/providers.dart';
 import 'history_repository.dart';
 
 // ─── State ───────────────────────────────────────────────────────────────────
@@ -16,7 +17,8 @@ class HistoryState {
 // ─── Providers ───────────────────────────────────────────────────────────────
 
 final historyRepositoryProvider = Provider<HistoryRepository>((ref) {
-  return InMemoryHistoryRepository();
+  final db = ref.read(appDatabaseProvider);
+  return DriftHistoryRepository(db);
 });
 
 final historyNotifierProvider =
@@ -32,12 +34,13 @@ class HistoryNotifier extends AsyncNotifier<HistoryState> {
   @override
   Future<HistoryState> build() async {
     _repo = ref.read(historyRepositoryProvider);
-    return _buildState();
-  }
-
-  Future<HistoryState> _buildState() async {
-    final entries = await _repo.getAll();
-    return HistoryState(groups: _groupByDate(entries));
+    // Subscribe to live stream so the UI updates immediately after each play.
+    final sub = _repo.watchAll().listen((entries) {
+      state = AsyncValue.data(HistoryState(groups: _groupByDate(entries)));
+    });
+    ref.onDispose(sub.cancel);
+    final initial = await _repo.getAll();
+    return HistoryState(groups: _groupByDate(initial));
   }
 
   List<HistoryGroup> _groupByDate(List<HistoryEntry> entries) {

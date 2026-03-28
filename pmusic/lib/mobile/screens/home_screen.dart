@@ -5,6 +5,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../../core/models/song.dart';
 import '../../features/history/history_notifier.dart';
+import 'history_screen.dart';
 import '../../features/player/player_notifier.dart';
 import '../../features/search/search_notifier.dart';
 import '../widgets/mini_player.dart';
@@ -20,6 +21,7 @@ const _kOnSurfaceVariant = Color(0xFF514439);
 const _kBrand = Color(0xFF865213);          // primary in design = text color
 const _kPrimary = Color(0xFFE2A05B);        // primary-container = amber fill
 const _kOutline = Color(0xFF847467);
+const _kOnPrimaryContainer = Color(0xFF613700); // on-primary-container chip text
 
 /// Mobile home / discovery screen.
 ///
@@ -185,6 +187,37 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
             ),
           ),
 
+          // ── Search mode chips (visible when search active) ──────────────
+          if (_searchActive)
+            SliverToBoxAdapter(
+              child: Padding(
+                padding: const EdgeInsets.fromLTRB(20, 0, 20, 8),
+                child: searchAsync.when(
+                  data: (state) => Row(
+                    children: [
+                      _ModeChip(
+                        label: '歌曲',
+                        selected: !state.albumMode,
+                        onSelected: (_) => ref
+                            .read(searchNotifierProvider.notifier)
+                            .setAlbumMode(false),
+                      ),
+                      const SizedBox(width: 8),
+                      _ModeChip(
+                        label: '专辑',
+                        selected: state.albumMode,
+                        onSelected: (_) => ref
+                            .read(searchNotifierProvider.notifier)
+                            .setAlbumMode(true),
+                      ),
+                    ],
+                  ),
+                  loading: () => const SizedBox.shrink(),
+                  error: (e, _) => const SizedBox.shrink(),
+                ),
+              ),
+            ),
+
           // ── Content area: idle OR search results ────────────────────────
           searchAsync.when(
             data: (state) {
@@ -232,6 +265,11 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
                         onTap: _playSong,
                         onMore: (s) =>
                             showSongActionSheet(context, s),
+                        onViewAll: () => Navigator.of(context).push(
+                          MaterialPageRoute<void>(
+                            builder: (_) => const HistoryScreen(),
+                          ),
+                        ),
                       );
                     },
                     loading: () => const SizedBox.shrink(),
@@ -284,6 +322,9 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
 
   SliverList _searchResultsSliver(
       SearchState state, String? currentSongId) {
+    if (state.albumMode) {
+      return _albumResultsSliver(state);
+    }
     return SliverList(
       delegate: SliverChildBuilderDelegate(
         (context, index) {
@@ -340,6 +381,180 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
       ),
     );
   }
+
+  /// Groups [state.results] by album and renders a 2-col grid of album cards.
+  SliverList _albumResultsSliver(SearchState state) {
+    // Deduplicate & group songs by album name.
+    final groups = <String, ({String name, String artist, String picId, String source, List<Song> songs})>{};
+    for (final song in state.results) {
+      final key = '${song.album}|${song.artistDisplay}';
+      if (!groups.containsKey(key)) {
+        groups[key] = (
+          name: song.album.isNotEmpty ? song.album : '未知专辑',
+          artist: song.artistDisplay,
+          picId: song.picId,
+          source: song.source.param,
+          songs: [],
+        );
+      }
+      groups[key]!.songs.add(song);
+    }
+    final albums = groups.values.toList();
+
+    return SliverList(
+      delegate: SliverChildBuilderDelegate(
+        (context, index) {
+          if (index == 0) {
+            return Padding(
+              padding: const EdgeInsets.fromLTRB(20, 16, 20, 10),
+              child: Text(
+                '专辑结果 (${albums.length})',
+                style: const TextStyle(
+                  fontSize: 22,
+                  fontWeight: FontWeight.w800,
+                  color: _kOnSurface,
+                  fontFamily: 'Plus Jakarta Sans',
+                ),
+              ),
+            );
+          }
+          if (index > albums.length) return const SizedBox(height: 80);
+          final album = albums[index - 1];
+          return _AlbumCard(
+            name: album.name,
+            artist: album.artist,
+            picId: album.picId,
+            source: album.source,
+            songCount: album.songs.length,
+            onTap: () => _playSong(album.songs.first),
+          );
+        },
+        childCount: albums.length + 2,
+      ),
+    );
+  }
+}
+
+// ─── Album card widget ────────────────────────────────────────────────────────
+
+class _AlbumCard extends StatelessWidget {
+  const _AlbumCard({
+    required this.name,
+    required this.artist,
+    required this.picId,
+    required this.source,
+    required this.songCount,
+    required this.onTap,
+  });
+  final String name, artist, picId, source;
+  final int songCount;
+  final VoidCallback onTap;
+
+  @override
+  Widget build(BuildContext context) {
+    // Build cover URL from picId (same format as SongListItem).
+    final coverUrl = picId.isNotEmpty
+        ? 'https://music-api.gdstudio.xyz/api.php?types=pic&id=$picId&source=$source'
+        : '';
+    return GestureDetector(
+      onTap: onTap,
+      child: Padding(
+        padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 6),
+        child: Row(
+          children: [
+            ClipRRect(
+              borderRadius: BorderRadius.circular(8),
+              child: coverUrl.isNotEmpty
+                  ? Image.network(
+                      coverUrl,
+                      width: 56,
+                      height: 56,
+                      fit: BoxFit.cover,
+                      errorBuilder: (ctx, e, _) =>
+                          const _AlbumCoverPlaceholder(),
+                    )
+                  : const _AlbumCoverPlaceholder(),
+            ),
+            const SizedBox(width: 12),
+            Expanded(
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Text(
+                    name,
+                    maxLines: 1,
+                    overflow: TextOverflow.ellipsis,
+                    style: const TextStyle(
+                      fontWeight: FontWeight.w700,
+                      fontSize: 14,
+                      color: _kOnSurface,
+                    ),
+                  ),
+                  const SizedBox(height: 2),
+                  Text(
+                    '$artist · $songCount 首',
+                    maxLines: 1,
+                    overflow: TextOverflow.ellipsis,
+                    style: const TextStyle(
+                      fontSize: 12,
+                      color: _kOnSurfaceVariant,
+                    ),
+                  ),
+                ],
+              ),
+            ),
+            const Icon(Icons.play_circle_outline, color: _kBrand, size: 28),
+          ],
+        ),
+      ),
+    );
+  }
+}
+
+class _AlbumCoverPlaceholder extends StatelessWidget {
+  const _AlbumCoverPlaceholder();
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      width: 56,
+      height: 56,
+      color: const Color(0xFFE4E2DD),
+      child: const Icon(Icons.album, size: 28, color: Color(0xFF847467)),
+    );
+  }
+}
+
+// ─── Mode chip ────────────────────────────────────────────────────────────────
+
+class _ModeChip extends StatelessWidget {
+  const _ModeChip({
+    required this.label,
+    required this.selected,
+    required this.onSelected,
+  });
+  final String label;
+  final bool selected;
+  final ValueChanged<bool> onSelected;
+
+  @override
+  Widget build(BuildContext context) {
+    return FilterChip(
+      label: Text(label),
+      selected: selected,
+      onSelected: onSelected,
+      selectedColor: const Color(0xFFE2A05B),
+      checkmarkColor: const Color(0xFF613700),
+      labelStyle: TextStyle(
+        fontSize: 13,
+        fontWeight: FontWeight.w600,
+        color: selected ? const Color(0xFF613700) : const Color(0xFF514439),
+      ),
+      backgroundColor: const Color(0xFFF5F3EE),
+      side: BorderSide.none,
+      shape: const StadiumBorder(),
+      padding: const EdgeInsets.symmetric(horizontal: 4),
+    );
+  }
 }
 
 // ─── Search history section ───────────────────────────────────────────────────
@@ -381,12 +596,12 @@ class _SearchHistorySection extends StatelessWidget {
               GestureDetector(
                 onTap: onClearAll,
                 child: Text(
-                  '清空',
-                  style: TextStyle(
-                    fontSize: 13,
+                  '清空'.toUpperCase(),
+                  style: const TextStyle(
+                    fontSize: 11,
                     fontWeight: FontWeight.w600,
                     color: _kBrand,
-                    letterSpacing: 0.8,
+                    letterSpacing: 1.5,
                   ),
                 ),
               ),
@@ -424,7 +639,7 @@ class _SearchHistorySection extends StatelessWidget {
                         style: const TextStyle(
                           fontSize: 14,
                           fontWeight: FontWeight.w500,
-                          color: _kBrand,
+                          color: _kOnPrimaryContainer,
                         ),
                       ),
                       const SizedBox(width: 6),
@@ -433,7 +648,7 @@ class _SearchHistorySection extends StatelessWidget {
                         child: const Icon(
                           Icons.close,
                           size: 14,
-                          color: _kOnSurfaceVariant,
+                          color: _kOnPrimaryContainer,
                         ),
                       ),
                     ],
@@ -457,12 +672,14 @@ class _RecentlyPlayedSection extends StatelessWidget {
     required this.currentSongId,
     required this.onTap,
     required this.onMore,
+    this.onViewAll,
   });
 
   final List<Song> songs;
   final String? currentSongId;
   final ValueChanged<Song> onTap;
   final ValueChanged<Song> onMore;
+  final VoidCallback? onViewAll;
 
   @override
   Widget build(BuildContext context) {
@@ -484,21 +701,24 @@ class _RecentlyPlayedSection extends StatelessWidget {
                   fontFamily: 'Plus Jakarta Sans',
                 ),
               ),
-              Row(
-                children: [
-                  Text(
-                    '查看全部',
-                    style: TextStyle(
-                      fontSize: 12,
-                      fontWeight: FontWeight.w600,
-                      color: _kBrand,
-                      letterSpacing: 0.6,
+              GestureDetector(
+                onTap: onViewAll,
+                child: Row(
+                  children: [
+                    Text(
+                      '查看全部',
+                      style: TextStyle(
+                        fontSize: 12,
+                        fontWeight: FontWeight.w600,
+                        color: _kBrand,
+                        letterSpacing: 0.6,
+                      ),
                     ),
-                  ),
-                  const SizedBox(width: 2),
-                  const Icon(Icons.arrow_forward_ios,
-                      size: 12, color: _kBrand),
-                ],
+                    const SizedBox(width: 2),
+                    const Icon(Icons.arrow_forward_ios,
+                        size: 12, color: _kBrand),
+                  ],
+                ),
               ),
             ],
           ),

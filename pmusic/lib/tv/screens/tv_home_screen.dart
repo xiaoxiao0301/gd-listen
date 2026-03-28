@@ -10,6 +10,7 @@ import '../../core/models/song.dart';
 import '../../features/history/history_notifier.dart';
 import '../../features/player/player_notifier.dart';
 import '../../features/search/search_notifier.dart';
+import 'tv_play_history_screen.dart';
 
 // ─── Design tokens (TV: tv_home_discovery_updated_content) ───────────────────
 
@@ -21,6 +22,7 @@ const _kOnSurfaceVariant = Color(0xFF514439);
 const _kBrand = Color(0xFF865213);
 const _kAmber = Color(0xFFE2A05B);
 const _kOutlineVariant = Color(0xFFD6C3B4);
+const _kOnPrimaryContainer = Color(0xFF613700); // on-primary-container chip text
 
 /// TV discovery / home screen content.
 ///
@@ -71,6 +73,12 @@ class _TvHomeScreenState extends ConsumerState<TvHomeScreen> {
     });
   }
 
+  void _onHistoryChipTap(String keyword) {
+    _searchCtrl.text = keyword;
+    setState(() => _searchActive = true);
+    ref.read(searchNotifierProvider.notifier).search(keyword);
+  }
+
   @override
   Widget build(BuildContext context) {
     return Container(
@@ -87,7 +95,7 @@ class _TvHomeScreenState extends ConsumerState<TvHomeScreen> {
           Expanded(
             child: _searchActive
                 ? _SearchResultsBody()
-                : _IdleBody(),
+                : _IdleBody(onHistoryChipTap: _onHistoryChipTap),
           ),
         ],
       ),
@@ -188,16 +196,18 @@ class _TvSearchHeader extends StatelessWidget {
 // ─── Idle body (history + recently played) ────────────────────────────────────
 
 class _IdleBody extends ConsumerWidget {
-  const _IdleBody();
+  const _IdleBody({required this.onHistoryChipTap});
+
+  final ValueChanged<String> onHistoryChipTap;
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
     return ListView(
       padding: const EdgeInsets.fromLTRB(48, 40, 48, 40),
-      children: const [
-        _SearchHistorySection(),
-        SizedBox(height: 48),
-        _RecentlyPlayedSection(),
+      children: [
+        _SearchHistorySection(onChipTap: onHistoryChipTap),
+        const SizedBox(height: 48),
+        const _RecentlyPlayedSection(),
       ],
     );
   }
@@ -206,7 +216,9 @@ class _IdleBody extends ConsumerWidget {
 // ─── Search history ───────────────────────────────────────────────────────────
 
 class _SearchHistorySection extends ConsumerWidget {
-  const _SearchHistorySection();
+  const _SearchHistorySection({required this.onChipTap});
+
+  final ValueChanged<String> onChipTap;
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
@@ -241,7 +253,7 @@ class _SearchHistorySection extends ConsumerWidget {
                 style: TextStyle(
                   fontSize: 14,
                   fontWeight: FontWeight.w600,
-                  color: _kBrand,
+                  color: Color(0xBF865213), // _kBrand at 70% opacity
                 ),
               ),
             ),
@@ -255,7 +267,7 @@ class _SearchHistorySection extends ConsumerWidget {
             return _HistoryChip(
               keyword: keyword,
               onTap: () {
-                ref.read(searchNotifierProvider.notifier).search(keyword);
+                onChipTap(keyword);
               },
               onDelete: () {
                 ref.read(searchNotifierProvider.notifier).removeHistory(keyword);
@@ -315,7 +327,7 @@ class _HistoryChipState extends State<_HistoryChip> {
                 style: TextStyle(
                   fontSize: 14,
                   fontWeight: FontWeight.w500,
-                  color: _kBrand,
+                  color: _kOnPrimaryContainer,
                   height: 1.3,
                 ),
               ),
@@ -383,7 +395,11 @@ class _RecentlyPlayedSection extends ConsumerWidget {
             ),
             const SizedBox(width: 16),
             _TvFocusButton(
-              onTap: () {},
+              onTap: () => Navigator.push(
+                context,
+                MaterialPageRoute(
+                    builder: (_) => const TvPlayHistoryScreen()),
+              ),
               child: Row(
                 mainAxisSize: MainAxisSize.min,
                 children: [
