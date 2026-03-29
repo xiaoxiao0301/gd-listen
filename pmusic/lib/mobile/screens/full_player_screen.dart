@@ -110,9 +110,9 @@ class _FullPlayerScreenState extends ConsumerState<FullPlayerScreen>
         }
 
         if (state.isPlaying) {
-          _rotation.repeat();
+          if (!_rotation.isAnimating) _rotation.repeat();
         } else {
-          _rotation.stop();
+          if (_rotation.isAnimating) _rotation.stop();
         }
 
         final isFav = favoriteAsync.valueOrNull?.isFavorite(song) ?? false;
@@ -125,7 +125,16 @@ class _FullPlayerScreenState extends ConsumerState<FullPlayerScreen>
 
         return Scaffold(
           backgroundColor: Colors.transparent,
-          body: Container(
+          body: GestureDetector(
+            onVerticalDragEnd: (details) {
+              if ((details.primaryVelocity ?? 0) < -200) {
+                Navigator.push(
+                  context,
+                  MaterialPageRoute(builder: (_) => const FullLyricScreen()),
+                );
+              }
+            },
+            child: Container(
             decoration: const BoxDecoration(
               gradient: LinearGradient(
                 begin: Alignment.topCenter,
@@ -165,8 +174,7 @@ class _FullPlayerScreenState extends ConsumerState<FullPlayerScreen>
                 ],
               ),
             ),
-          ),
-        );
+          ),          ),        );
       },
     );
   }
@@ -484,15 +492,6 @@ class _FullPlayerScreenState extends ConsumerState<FullPlayerScreen>
         context,
         MaterialPageRoute(builder: (_) => const FullLyricScreen()),
       ),
-      onVerticalDragEnd: (details) {
-        if (details.primaryVelocity != null &&
-            details.primaryVelocity! < -200) {
-          Navigator.push(
-            context,
-            MaterialPageRoute(builder: (_) => const FullLyricScreen()),
-          );
-        }
-      },
       child: const Column(
         children: [
           Text(
