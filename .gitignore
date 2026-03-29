@@ -82,8 +82,9 @@ Desktop.ini
 *.sqlite
 *.sqlite3
 
-# Audio cache
-cache/
+# Audio cache (only runtime cache dirs at repo root or in build output)
+/cache/
+pmusic/cache/
 audio_cache/
 
 # Lyrics cache
