@@ -1,3 +1,5 @@
+import 'dart:async';
+
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
@@ -41,9 +43,11 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
   final _searchCtrl = TextEditingController();
   final _searchFocus = FocusNode();
   bool _searchActive = false;
+  Timer? _searchDebounce;
 
   @override
   void dispose() {
+    _searchDebounce?.cancel();
     _searchCtrl.dispose();
     _searchFocus.dispose();
     super.dispose();
@@ -51,14 +55,23 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
 
   // ── Search interaction ────────────────────────────────────────────────────
 
-  // Called on every keystroke — used only to clear when field becomes empty.
-  // We do NOT trigger a search here so that Chinese IME composing strokes
-  // don't fire a request.
+  // Called on every keystroke.
+  // Debounce 500ms; skip the trigger while the IME is still composing
+  // (e.g. mid-pinyin stroke) to avoid spurious Chinese-character requests.
   void _onSearchChanged(String value) {
     if (value.trim().isEmpty) {
+      _searchDebounce?.cancel();
       ref.read(searchNotifierProvider.notifier).clearSearch();
       setState(() => _searchActive = false);
+      return;
     }
+    _searchDebounce?.cancel();
+    _searchDebounce = Timer(const Duration(milliseconds: 500), () {
+      // Only fire when the IME has committed the text (no active composition).
+      if (_searchCtrl.value.composing == TextRange.empty) {
+        _onSearchSubmitted(_searchCtrl.text);
+      }
+    });
   }
 
   // Only triggered when the user presses the keyboard search/done button OR

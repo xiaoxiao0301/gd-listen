@@ -2,6 +2,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../../core/models/song.dart';
 import '../../core/providers.dart';
+import '../player/player_notifier.dart';
 import 'favorite_repository.dart';
 
 // ─── State ───────────────────────────────────────────────────────────────────
@@ -72,5 +73,13 @@ class FavoriteNotifier extends AsyncNotifier<FavoriteState> {
       await _repo.remove(song.id, song.source.param);
     }
     // The watchAll() stream will push the updated list automatically.
+  }
+
+  /// Appends multiple songs to the play queue.
+  Future<void> batchAddToQueue(List<Song> songs) async {
+    final player = ref.read(playerNotifierProvider.notifier);
+    for (final song in songs) {
+      await player.addToQueue(song);
+    }
   }
 }
