@@ -136,6 +136,16 @@ class PlayerNotifier extends AsyncNotifier<AppPlayerState> {
       }
     });
 
+    // Sync isPlaying from the actual player state so the UI is always correct
+    // even when the OS pauses/resumes playback (audio focus, interruptions, etc).
+    _audioPlayer.playingStream.listen((actuallyPlaying) {
+      final current = state.valueOrNull;
+      if (current != null && current.isPlaying != actuallyPlaying) {
+        state = AsyncValue.data(
+            current.copyWith(isPlaying: actuallyPlaying));
+      }
+    });
+
     // Auto-advance when track completes.
     _audioPlayer.completionStream.listen((_) => _onTrackCompleted());
 

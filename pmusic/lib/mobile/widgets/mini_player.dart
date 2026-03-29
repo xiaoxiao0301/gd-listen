@@ -58,9 +58,9 @@ class _MiniPlayerState extends ConsumerState<MiniPlayer>
         if (state.currentSong == null) return const SizedBox.shrink();
 
         if (state.isPlaying) {
-          _rotation.repeat();
+          if (!_rotation.isAnimating) _rotation.repeat();
         } else {
-          _rotation.stop();
+          if (_rotation.isAnimating) _rotation.stop();
         }
 
         final song = state.currentSong!;

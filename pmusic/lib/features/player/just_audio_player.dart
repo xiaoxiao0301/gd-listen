@@ -30,6 +30,10 @@ class JustAudioPlayer {
   Stream<Duration> get positionStream => _player.positionStream;
   Stream<Duration?> get durationStream => _player.durationStream;
 
+  /// Emits the actual playing state from just_audio so the UI stays in sync
+  /// when the OS interrupts or resumes playback.
+  Stream<bool> get playingStream => _player.playingStream;
+
   /// Emits [ja.PlayerState] events from just_audio.
   Stream<ja.PlayerState> get playerStateStream => _player.playerStateStream;
 

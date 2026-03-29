@@ -41,7 +41,6 @@ class TvHomeScreen extends ConsumerStatefulWidget {
 
 class _TvHomeScreenState extends ConsumerState<TvHomeScreen> {
   final _searchCtrl = TextEditingController();
-  final _searchFocus = FocusNode();
   Timer? _debounce;
   bool _searchActive = false;
 
@@ -57,7 +56,6 @@ class _TvHomeScreenState extends ConsumerState<TvHomeScreen> {
   void dispose() {
     _debounce?.cancel();
     _searchCtrl.dispose();
-    _searchFocus.dispose();
     super.dispose();
   }
 
@@ -87,6 +85,19 @@ class _TvHomeScreenState extends ConsumerState<TvHomeScreen> {
     ref.read(searchNotifierProvider.notifier).search(keyword);
   }
 
+  Future<void> _openSearchDialog() async {
+    final result = await showDialog<String>(
+      context: context,
+      barrierDismissible: true,
+      builder: (ctx) => _TvSearchDialog(
+        initialValue: _searchCtrl.text,
+      ),
+    );
+    if (result == null) return; // cancelled
+    _searchCtrl.text = result;
+    _onSearchSubmitted(result);
+  }
+
   @override
   Widget build(BuildContext context) {
     return Container(
@@ -95,10 +106,12 @@ class _TvHomeScreenState extends ConsumerState<TvHomeScreen> {
         children: [
           // ── Sticky header ─────────────────────────────────────────────────
           _TvSearchHeader(
-            controller: _searchCtrl,
-            focusNode: _searchFocus,
-            onChanged: _onSearchChanged,
-            onSubmitted: _onSearchSubmitted,
+            queryText: _searchCtrl.text,
+            onTap: _openSearchDialog,
+            onClear: () {
+              _searchCtrl.text = '';
+              _onSearchChanged('');
+            },
           ),
           // ── Scrollable content ────────────────────────────────────────────
           Expanded(
@@ -116,16 +129,14 @@ class _TvHomeScreenState extends ConsumerState<TvHomeScreen> {
 
 class _TvSearchHeader extends StatelessWidget {
   const _TvSearchHeader({
-    required this.controller,
-    required this.focusNode,
-    required this.onChanged,
-    required this.onSubmitted,
+    required this.queryText,
+    required this.onTap,
+    required this.onClear,
   });
 
-  final TextEditingController controller;
-  final FocusNode focusNode;
-  final ValueChanged<String> onChanged;
-  final ValueChanged<String> onSubmitted;
+  final String queryText;
+  final VoidCallback onTap;
+  final VoidCallback onClear;
 
   @override
   Widget build(BuildContext context) {
@@ -139,65 +150,181 @@ class _TvSearchHeader extends StatelessWidget {
       ),
       child: Row(
         children: [
-          // App title on the left (spacer keeps search right-aligned)
           const Spacer(),
-          // Search pill — max 400px wide (design: max-w-md)
-          ConstrainedBox(
-            constraints: const BoxConstraints(maxWidth: 400),
-            child: TextField(
-              controller: controller,
-              focusNode: focusNode,
-              onChanged: onChanged,
-              onSubmitted: onSubmitted,
-              onTap: () {
-                // Intentionally empty — focus gain is detected via focusNode
-                // listener in _TvHomeScreenState._onFocusChanged().
-              },
-              // Prevent Flutter from unfocusing (and auto-dismissing the
-              // soft keyboard) when the user taps a key on the TV floating
-              // keyboard overlay — the tap lands "outside" the TextField
-              // bounds and normally triggers an unfocus.
-              onTapOutside: (_) {},
-              textInputAction: TextInputAction.search,
-              style: const TextStyle(
-                fontSize: 15,
-                color: _kOnSurface,
-                height: 1.4,
-              ),
-              decoration: InputDecoration(
-                hintText: '搜索歌手、曲目、专辑…',
-                hintStyle: TextStyle(
-                  color: _kOnSurfaceVariant.withValues(alpha: 0.6),
-                  fontSize: 15,
-                ),
-                prefixIcon: const Icon(
-                  Icons.search,
-                  color: _kBrand,
-                  size: 22,
-                ),
-                filled: true,
-                fillColor: _kSurfaceContainerLow,
-                contentPadding: const EdgeInsets.symmetric(
-                  horizontal: 24,
-                  vertical: 16,
-                ),
-                enabledBorder: OutlineInputBorder(
+          // Tappable search pill — opens a dialog with a keyboard on TV.
+          GestureDetector(
+            onTap: onTap,
+            child: ConstrainedBox(
+              constraints: const BoxConstraints(maxWidth: 400, minWidth: 240),
+              child: Container(
+                padding: const EdgeInsets.symmetric(
+                    horizontal: 20, vertical: 14),
+                decoration: BoxDecoration(
+                  color: _kSurfaceContainerLow,
                   borderRadius: BorderRadius.circular(999),
-                  borderSide: BorderSide.none,
+                  border: queryText.isNotEmpty
+                      ? Border.all(color: _kAmber, width: 2)
+                      : null,
                 ),
-                focusedBorder: OutlineInputBorder(
-                  borderRadius: BorderRadius.circular(999),
-                  borderSide:
-                      const BorderSide(color: _kAmber, width: 2),
-                ),
-                border: OutlineInputBorder(
-                  borderRadius: BorderRadius.circular(999),
-                  borderSide: BorderSide.none,
+                child: Row(
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    const Icon(Icons.search,
+                        color: _kBrand, size: 22),
+                    const SizedBox(width: 10),
+                    Expanded(
+                      child: Text(
+                        queryText.isEmpty
+                            ? '搜索歌手、曲目、专辑…'
+                            : queryText,
+                        style: TextStyle(
+                          fontSize: 15,
+                          color: queryText.isEmpty
+                              ? _kOnSurfaceVariant.withValues(alpha: 0.6)
+                              : _kOnSurface,
+                          height: 1.4,
+                        ),
+                        maxLines: 1,
+                        overflow: TextOverflow.ellipsis,
+                      ),
+                    ),
+                    if (queryText.isNotEmpty)
+                      GestureDetector(
+                        onTap: onClear,
+                        child: const Icon(Icons.close,
+                            color: _kOnSurfaceVariant, size: 18),
+                      ),
+                  ],
                 ),
               ),
             ),
           ),
         ],
+      ),
+    );
+  }
+}
+
+// ─── TV search dialog ────────────────────────────────────────────────────────
+
+/// A dialog that hosts a [TextField] and auto-opens the TV soft keyboard.
+class _TvSearchDialog extends StatefulWidget {
+  const _TvSearchDialog({required this.initialValue});
+
+  final String initialValue;
+
+  @override
+  State<_TvSearchDialog> createState() => _TvSearchDialogState();
+}
+
+class _TvSearchDialogState extends State<_TvSearchDialog> {
+  late final TextEditingController _ctrl;
+  final _focus = FocusNode();
+
+  @override
+  void initState() {
+    super.initState();
+    _ctrl = TextEditingController(text: widget.initialValue);
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      if (mounted) _focus.requestFocus();
+    });
+  }
+
+  @override
+  void dispose() {
+    _ctrl.dispose();
+    _focus.dispose();
+    super.dispose();
+  }
+
+  void _submit(String value) {
+    Navigator.of(context).pop(value.trim());
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return Dialog(
+      backgroundColor: _kBackground,
+      shape:
+          RoundedRectangleBorder(borderRadius: BorderRadius.circular(24)),
+      child: ConstrainedBox(
+        constraints: const BoxConstraints(maxWidth: 560),
+        child: Padding(
+          padding: const EdgeInsets.all(32),
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            crossAxisAlignment: CrossAxisAlignment.stretch,
+            children: [
+              const Text(
+                '搜索',
+                style: TextStyle(
+                  fontSize: 20,
+                  fontWeight: FontWeight.w700,
+                  color: _kOnSurface,
+                ),
+              ),
+              const SizedBox(height: 20),
+              TextField(
+                controller: _ctrl,
+                focusNode: _focus,
+                onSubmitted: _submit,
+                onTapOutside: (_) {},
+                textInputAction: TextInputAction.search,
+                autofocus: true,
+                style: const TextStyle(
+                    fontSize: 17, color: _kOnSurface, height: 1.4),
+                decoration: InputDecoration(
+                  hintText: '搜索歌手、曲目、专辑…',
+                  hintStyle: TextStyle(
+                      color: _kOnSurfaceVariant.withValues(alpha: 0.6),
+                      fontSize: 17),
+                  prefixIcon:
+                      const Icon(Icons.search, color: _kBrand, size: 22),
+                  filled: true,
+                  fillColor: _kSurfaceContainerLow,
+                  contentPadding: const EdgeInsets.symmetric(
+                      horizontal: 20, vertical: 16),
+                  enabledBorder: OutlineInputBorder(
+                    borderRadius: BorderRadius.circular(16),
+                    borderSide: BorderSide.none,
+                  ),
+                  focusedBorder: OutlineInputBorder(
+                    borderRadius: BorderRadius.circular(16),
+                    borderSide: const BorderSide(color: _kAmber, width: 2),
+                  ),
+                  border: OutlineInputBorder(
+                    borderRadius: BorderRadius.circular(16),
+                    borderSide: BorderSide.none,
+                  ),
+                ),
+              ),
+              const SizedBox(height: 20),
+              Row(
+                mainAxisAlignment: MainAxisAlignment.end,
+                children: [
+                  TextButton(
+                    onPressed: () => Navigator.of(context).pop(),
+                    child: const Text('取消',
+                        style: TextStyle(
+                            color: _kOnSurfaceVariant, fontSize: 15)),
+                  ),
+                  const SizedBox(width: 12),
+                  FilledButton(
+                    style: FilledButton.styleFrom(
+                      backgroundColor: _kAmber,
+                      foregroundColor: _kOnPrimaryContainer,
+                      shape: RoundedRectangleBorder(
+                          borderRadius: BorderRadius.circular(12)),
+                    ),
+                    onPressed: () => _submit(_ctrl.text),
+                    child: const Text('搜索',
+                        style: TextStyle(fontSize: 15)),
+                  ),
+                ],
+              ),
+            ],
+          ),
+        ),
       ),
     );
   }
