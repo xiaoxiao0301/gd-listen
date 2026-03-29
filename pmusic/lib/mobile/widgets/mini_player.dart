@@ -74,9 +74,7 @@ class _MiniPlayerState extends ConsumerState<MiniPlayer>
         final picUrl =
             MusicApiClient.buildPicUrl(song.source.param, song.picId);
 
-        return Padding(
-          padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 4),
-          child: GestureDetector(
+        return GestureDetector(
             onTap: widget.onTap,
             // Up-swipe navigates to full player screen.
             onVerticalDragEnd: (details) {
@@ -85,19 +83,25 @@ class _MiniPlayerState extends ConsumerState<MiniPlayer>
               }
             },
             child: ClipRRect(
-              borderRadius: BorderRadius.circular(16),
+              borderRadius: const BorderRadius.only(
+                topLeft: Radius.circular(20),
+                topRight: Radius.circular(20),
+              ),
               child: BackdropFilter(
                 filter: ImageFilter.blur(sigmaX: 20, sigmaY: 20),
                 child: Container(
-                  height: 64,
-                  decoration: BoxDecoration(
+                  height: kMiniPlayerHeight,
+                  decoration: const BoxDecoration(
                     color: _kGlass,
-                    borderRadius: BorderRadius.circular(16),
+                    borderRadius: BorderRadius.only(
+                      topLeft: Radius.circular(20),
+                      topRight: Radius.circular(20),
+                    ),
                     boxShadow: [
                       BoxShadow(
-                        color: const Color(0xFF865213).withValues(alpha: 0.10),
-                        blurRadius: 20,
-                        offset: const Offset(0, -4),
+                        color: Color(0x1A865213),
+                        blurRadius: 24,
+                        offset: Offset(0, -6),
                       ),
                     ],
                   ),
@@ -221,7 +225,6 @@ class _MiniPlayerState extends ConsumerState<MiniPlayer>
                 ),
               ),
             ),
-          ),
         );
       },
       loading: () => const SizedBox.shrink(),

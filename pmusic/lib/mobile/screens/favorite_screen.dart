@@ -459,41 +459,7 @@ class _HeroSection extends StatelessWidget {
             ),
           ),
 
-          const SizedBox(height: 28),
-
-          // Info text
-          const Text(
-            '个人曲库',
-            style: TextStyle(
-              fontFamily: 'Be Vietnam Pro',
-              fontSize: 10,
-              fontWeight: FontWeight.w700,
-              letterSpacing: 3.2,
-              color: _kOutline,
-            ),
-          ),
-          const SizedBox(height: 4),
-          const Text(
-            '我的收藏',
-            style: TextStyle(
-              fontFamily: 'Plus Jakarta Sans',
-              fontSize: 36,
-              fontWeight: FontWeight.w800,
-              letterSpacing: -1.0,
-              color: _kOnSurface,
-              height: 1.1,
-            ),
-          ),
-          const SizedBox(height: 8),
-          Text(
-            '这里存放着你最感动的每一个瞬间，共 ${songs.length} 首曲目。',
-            style: const TextStyle(
-              fontSize: 13,
-              color: _kOnSurfaceVariant,
-              height: 1.5,
-            ),
-          ),
-          const SizedBox(height: 16),
+          const SizedBox(height: 20),
           // Side-by-side action buttons
           Row(
             children: [

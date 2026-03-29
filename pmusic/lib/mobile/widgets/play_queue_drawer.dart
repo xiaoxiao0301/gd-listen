@@ -42,7 +42,9 @@ class PlayQueueDrawer extends ConsumerWidget {
         final currentIndex = state.currentIndex;
         final notifier = ref.read(playerNotifierProvider.notifier);
 
-        return Stack(
+        return Material(
+          type: MaterialType.transparency,
+          child: Stack(
           children: [
             // ── Scrim ─────────────────────────────────────────────────────
             GestureDetector(
@@ -96,7 +98,8 @@ class PlayQueueDrawer extends ConsumerWidget {
               ),
             ),
           ],
-        );
+        ),
+      );
       },
     );
   }

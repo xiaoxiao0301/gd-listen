@@ -1,10 +1,8 @@
 import 'dart:ui' as ui;
 
-import 'package:cached_network_image/cached_network_image.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
-import '../../core/api/music_api_client.dart';
 import '../../features/player/player_notifier.dart';
 import '../widgets/lyric_scroll_view.dart';
 
@@ -13,7 +11,6 @@ import '../widgets/lyric_scroll_view.dart';
 const _kBg = Color(0xFF2B1810);
 const _kAmber = Color(0xFFE2A05B);
 const _kBrown = Color(0xFF795548);
-const _kOnSurfaceVariant = Color(0xFF514439);
 
 /// Full-screen lyric viewer for mobile.
 ///
@@ -41,13 +38,6 @@ class FullLyricScreen extends ConsumerWidget {
         body: Center(child: CircularProgressIndicator(color: _kAmber)),
       );
     }
-
-    final picUrl = MusicApiClient.buildPicUrl(
-      song.source.param,
-      song.picId,
-      size: 200,
-    );
-    final isPlaying = playerAsync.valueOrNull?.isPlaying ?? false;
 
     return Scaffold(
       backgroundColor: _kBg,
@@ -168,12 +158,8 @@ class FullLyricScreen extends ConsumerWidget {
                                     ],
                                   ),
                                 ),
-                                // More button
-                                const Icon(
-                                  Icons.more_vert,
-                                  color: _kAmber,
-                                  size: 24,
-                                ),
+                                // right side: spacer to balance the back button
+                                const SizedBox(width: 24),
                               ],
                             ),
                           ),
@@ -191,121 +177,7 @@ class FullLyricScreen extends ConsumerWidget {
             ),
           ),
 
-          // ── Bottom player pill ───────────────────────────────────────────
-          Positioned(
-            bottom: 48,
-            left: 24,
-            right: 24,
-            child: ClipRRect(
-              borderRadius: BorderRadius.circular(999),
-              child: BackdropFilter(
-                filter: ui.ImageFilter.blur(sigmaX: 20, sigmaY: 20),
-                child: Container(
-                  padding:
-                      const EdgeInsets.symmetric(horizontal: 24, vertical: 16),
-                  decoration: BoxDecoration(
-                    color: const Color(0xFF1B1C19).withValues(alpha: 0.4),
-                    borderRadius: BorderRadius.circular(999),
-                    border: Border.all(
-                      color: _kAmber.withValues(alpha: 0.10),
-                    ),
-                    boxShadow: const [
-                      BoxShadow(
-                        color: Color(0x26865213),
-                        blurRadius: 32,
-                        offset: Offset(0, 8),
-                      ),
-                    ],
-                  ),
-                  child: Row(
-                    children: [
-                      // Album cover
-                      ClipRRect(
-                        borderRadius: BorderRadius.circular(8),
-                        child: CachedNetworkImage(
-                          imageUrl: picUrl,
-                          width: 40,
-                          height: 40,
-                          fit: BoxFit.cover,
-                          placeholder: (context, url) => Container(
-                            width: 40,
-                            height: 40,
-                            color: _kOnSurfaceVariant.withValues(alpha: 0.3),
-                            child: const Icon(Icons.music_note,
-                                color: _kBrown, size: 18),
-                          ),
-                          errorWidget: (context, url, error) => Container(
-                            width: 40,
-                            height: 40,
-                            color: _kOnSurfaceVariant.withValues(alpha: 0.3),
-                            child: const Icon(Icons.music_note,
-                                color: _kBrown, size: 18),
-                          ),
-                        ),
-                      ),
-                      const SizedBox(width: 16),
-                      // Song info
-                      Expanded(
-                        child: Column(
-                          crossAxisAlignment: CrossAxisAlignment.start,
-                          mainAxisSize: MainAxisSize.min,
-                          children: [
-                            Text(
-                              song.name,
-                              maxLines: 1,
-                              overflow: TextOverflow.ellipsis,
-                              style: const TextStyle(
-                                fontSize: 12,
-                                fontWeight: FontWeight.w700,
-                                color: _kAmber,
-                                letterSpacing: -0.3,
-                              ),
-                            ),
-                            const SizedBox(height: 2),
-                            Text(
-                              song.artistDisplay.toUpperCase(),
-                              maxLines: 1,
-                              overflow: TextOverflow.ellipsis,
-                              style: const TextStyle(
-                                fontSize: 10,
-                                color: _kBrown,
-                                letterSpacing: -0.2,
-                              ),
-                            ),
-                          ],
-                        ),
-                      ),
-                      const SizedBox(width: 16),
-                      // Play / Pause
-                      GestureDetector(
-                        onTap: () => ref
-                            .read(playerNotifierProvider.notifier)
-                            .togglePlay(),
-                        child: Icon(
-                          isPlaying
-                              ? Icons.pause_circle_filled
-                              : Icons.play_circle_filled,
-                          color: _kAmber,
-                          size: 32,
-                        ),
-                      ),
-                      const SizedBox(width: 16),
-                      // Skip next
-                      GestureDetector(
-                        onTap: () =>
-                            ref.read(playerNotifierProvider.notifier).skipToNext(),
-                        child: const Icon(
-                          Icons.skip_next,
-                          color: _kBrown,
-                          size: 24,
-                        ),
-                      ),
-                    ],
-                  ),
-                ),
-              ),
-            ),
-          ),
+          // ── Bottom player pill removed ───────────────────────────────────
         ],
       ),
     );
