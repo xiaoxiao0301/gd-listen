@@ -1,13 +1,12 @@
-import 'package:cached_network_image/cached_network_image.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
-import '../../core/api/music_api_client.dart';
 import '../../core/models/playlist.dart';
 import '../../core/models/song.dart';
 import '../../features/player/player_notifier.dart';
 import '../../features/playlist/playlist_notifier.dart';
 import '../widgets/mini_player.dart';
+import '../widgets/song_cover_image.dart';
 import 'playlist_detail_screen.dart';
 
 // ─── Design tokens (my_playlists/code.html) ──────────────────────────────────
@@ -561,14 +560,14 @@ class _PlaylistCover extends StatelessWidget {
 
   Widget _buildImage(dynamic song) {
     final s = song as Song;
-    final url =
-        MusicApiClient.buildPicUrl(s.source.param, s.picId, size: 150);
-    if (url.isEmpty) return _placeholder(playlistId);
-    return CachedNetworkImage(
-      imageUrl: url,
+    return SongCover(
+      source: s.source.param,
+      picId: s.picId,
+      size: 150,
       fit: BoxFit.cover,
-      placeholder: (_, _) => _placeholder(playlistId),
-      errorWidget: (_, _, _) => _placeholder(playlistId),
+      width: 72,
+      height: 72,
+      borderRadius: 12,
     );
   }
 

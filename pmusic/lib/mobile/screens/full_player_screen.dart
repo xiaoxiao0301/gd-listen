@@ -1,15 +1,14 @@
 
-import 'package:cached_network_image/cached_network_image.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
-import '../../core/api/music_api_client.dart';
 import '../../core/models/enums.dart';
 import '../../core/models/song.dart';
 import '../../features/favorite/favorite_notifier.dart';
 import '../../features/player/player_notifier.dart';
-import '../widgets/lyric_scroll_view.dart';
+import '../../features/lyric/lyric_notifier.dart';
 import '../widgets/play_queue_drawer.dart';
+import '../widgets/song_cover_image.dart';
 import 'full_lyric_screen.dart';
 
 // ─── Design tokens ────────────────────────────────────────────────────────────
@@ -123,8 +122,6 @@ class _FullPlayerScreenState extends ConsumerState<FullPlayerScreen>
                 .clamp(0.0, 1.0)
                 .toDouble()
             : 0.0;
-        final picUrl =
-            MusicApiClient.buildPicUrl(song.source.param, song.picId, size: 400);
 
         return Scaffold(
           backgroundColor: Colors.transparent,
@@ -148,10 +145,12 @@ class _FullPlayerScreenState extends ConsumerState<FullPlayerScreen>
                         child: Column(
                           children: [
                             const SizedBox(height: 32),
-                            _buildAlbumCover(picUrl, song.name),
+                            _buildAlbumCover(song),
                             const SizedBox(height: 48),
                             _buildSongInfo(song, isFav),
-                            const SizedBox(height: 32),
+                            const SizedBox(height: 16),
+                            _InlineLyricLine(song: song),
+                            const SizedBox(height: 16),
                             _buildProgressBar(state, progress),
                             const SizedBox(height: 32),
                             _buildControls(state),
@@ -220,12 +219,13 @@ class _FullPlayerScreenState extends ConsumerState<FullPlayerScreen>
 
   // ── Vinyl album cover ──────────────────────────────────────────────────────
 
-  Widget _buildAlbumCover(String picUrl, String songName) {
+  Widget _buildAlbumCover(Song song) {
     return RotationTransition(
       turns: _rotation,
       child: Container(
         width: 280,
         height: 280,
+        clipBehavior: Clip.antiAlias,
         decoration: BoxDecoration(
           shape: BoxShape.circle,
           color: const Color(0xFF1B1C19),
@@ -240,21 +240,15 @@ class _FullPlayerScreenState extends ConsumerState<FullPlayerScreen>
         child: Stack(
           alignment: Alignment.center,
           children: [
-            // Album art (square inside circle)
-            ClipRRect(
-              borderRadius: BorderRadius.circular(14),
-              child: SizedBox(
-                width: 228,
-                height: 228,
-                child: picUrl.isNotEmpty
-                    ? CachedNetworkImage(
-                        imageUrl: picUrl,
-                        fit: BoxFit.cover,
-                        placeholder: (_, _) => _buildCoverPlaceholder(),
-                        errorWidget: (_, _, _) => _buildCoverPlaceholder(),
-                      )
-                    : _buildCoverPlaceholder(),
-              ),
+            // Album art fills the full circle
+            SongCover(
+              source: song.source.param,
+              picId: song.picId,
+              size: 400,
+              width: 280,
+              height: 280,
+              borderRadius: 0,
+              fit: BoxFit.cover,
             ),
             // Vinyl groove ring texture
             Container(
@@ -499,39 +493,76 @@ class _FullPlayerScreenState extends ConsumerState<FullPlayerScreen>
           );
         }
       },
-      child: Column(
+      child: const Column(
         children: [
-          SizedBox(
-            height: 120,
-            child: LyricScrollView(
-              songId: song.id,
-              source: song.source.param,
-              previewMode: true,
-              // Design (full_player): active line = text-primary = #865213
-              activeLineColor: _kGradientMid,
+          Text(
+            '上滑查看全部歌词',
+            style: TextStyle(
+              fontSize: 10,
+              fontWeight: FontWeight.w700,
+              color: _kAmber,
+              letterSpacing: 2.5,
             ),
           ),
-          const SizedBox(height: 20),
-          const Column(
-            children: [
-              Text(
-                '上滑查看全部歌词',
-                style: TextStyle(
-                  fontSize: 10,
-                  fontWeight: FontWeight.w700,
-                  color: _kAmber,
-                  letterSpacing: 2.5,
-                ),
-              ),
-              SizedBox(height: 4),
-              Icon(
-                Icons.keyboard_double_arrow_up,
-                color: _kAmber,
-                size: 16,
-              ),
-            ],
+          SizedBox(height: 4),
+          Icon(
+            Icons.keyboard_double_arrow_up,
+            color: _kAmber,
+            size: 16,
           ),
         ],
+      ),
+    );
+  }
+}
+
+// ─── Inline lyric line (one highlighted line between cover and progress) ─────
+
+class _InlineLyricLine extends ConsumerWidget {
+  const _InlineLyricLine({required this.song});
+
+  final Song song;
+
+  @override
+  Widget build(BuildContext context, WidgetRef ref) {
+    final lyricKey = (song.id, song.source.param);
+
+    // Keep lyric index in sync with player position.
+    ref.listen<AsyncValue<AppPlayerState>>(playerNotifierProvider, (_, next) {
+      next.whenData((s) {
+        ref
+            .read(lyricNotifierProvider(lyricKey).notifier)
+            .syncPosition(s.position);
+      });
+    });
+
+    final lyricAsync = ref.watch(lyricNotifierProvider(lyricKey));
+
+    return SizedBox(
+      height: 22,
+      child: lyricAsync.when(
+        loading: () => const SizedBox.shrink(),
+        error: (_, __) => const SizedBox.shrink(),
+        data: (lyricState) {
+          if (lyricState.lines.isEmpty) return const SizedBox.shrink();
+          final line = lyricState.lines[lyricState.currentIndex];
+          return AnimatedSwitcher(
+            duration: const Duration(milliseconds: 400),
+            child: Text(
+              line.original,
+              key: ValueKey(lyricState.currentIndex),
+              textAlign: TextAlign.center,
+              maxLines: 1,
+              overflow: TextOverflow.ellipsis,
+              style: const TextStyle(
+                fontSize: 15,
+                color: _kGradientMid,
+                fontWeight: FontWeight.w500,
+                fontFamily: 'Plus Jakarta Sans',
+              ),
+            ),
+          );
+        },
       ),
     );
   }

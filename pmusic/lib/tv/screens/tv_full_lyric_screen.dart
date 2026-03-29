@@ -1,12 +1,12 @@
 import 'dart:ui' as ui;
 
-import 'package:cached_network_image/cached_network_image.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
-import '../../core/api/music_api_client.dart';
+import '../../core/models/enums.dart';
 import '../../features/lyric/lyric_notifier.dart';
 import '../../features/player/player_notifier.dart';
+import '../../mobile/widgets/song_cover_image.dart';
 
 // ─── Design tokens (tv_full_lyrics/code.html) ────────────────────────────────
 
@@ -78,12 +78,6 @@ class _TvFullLyricScreenState extends ConsumerState<TvFullLyricScreen> {
         ? (position.inMilliseconds / duration.inMilliseconds).clamp(0.0, 1.0)
         : 0.0;
 
-    final picUrl = MusicApiClient.buildPicUrl(
-      song.source.param,
-      song.picId,
-      size: 600,
-    );
-
     final lyricKey = (song.id, song.source.param);
 
     // Sync position to lyric notifier
@@ -115,7 +109,7 @@ class _TvFullLyricScreenState extends ConsumerState<TvFullLyricScreen> {
                       // ── Left: album art ──────────────────────────────────
                       SizedBox(
                         width: MediaQuery.of(context).size.width / 3,
-                        child: _buildAlbumArt(picUrl),
+                        child: _buildAlbumArt(song.source.param, song.picId),
                       ),
 
                       // ── Right: lyric scroll ──────────────────────────────
@@ -224,7 +218,7 @@ class _TvFullLyricScreenState extends ConsumerState<TvFullLyricScreen> {
     );
   }
 
-  Widget _buildAlbumArt(String picUrl) {
+  Widget _buildAlbumArt(String source, String picId) {
     return Padding(
       padding: const EdgeInsets.only(right: 48),
       child: Column(
@@ -253,28 +247,14 @@ class _TvFullLyricScreenState extends ConsumerState<TvFullLyricScreen> {
               // Album cover with subtle rotation
               Transform.rotate(
                 angle: 0.052, // ~3 degrees
-                child: ClipRRect(
-                  borderRadius: BorderRadius.circular(16),
-                  child: CachedNetworkImage(
-                    imageUrl: picUrl,
-                    width: 320,
-                    height: 320,
-                    fit: BoxFit.cover,
-                    placeholder: (context, url) => Container(
-                      width: 320,
-                      height: 320,
-                      color: _kBrown.withValues(alpha: 0.2),
-                      child: const Icon(Icons.music_note,
-                          color: _kBrown, size: 64),
-                    ),
-                    errorWidget: (context, url, error) => Container(
-                      width: 320,
-                      height: 320,
-                      color: _kBrown.withValues(alpha: 0.2),
-                      child: const Icon(Icons.music_note,
-                          color: _kBrown, size: 64),
-                    ),
-                  ),
+                child: SongCover(
+                  source: source,
+                  picId: picId,
+                  size: 600,
+                  width: 320,
+                  height: 320,
+                  borderRadius: 16,
+                  fit: BoxFit.cover,
                 ),
               ),
             ],
@@ -484,7 +464,31 @@ class _TvFullLyricScreenState extends ConsumerState<TvFullLyricScreen> {
                 Row(
                   mainAxisAlignment: MainAxisAlignment.center,
                   children: [
-                    const Icon(Icons.shuffle, color: _kMuted, size: 22),
+                    GestureDetector(
+                      onTap: () {
+                        final s = ref
+                            .read(playerNotifierProvider)
+                            .valueOrNull;
+                        if (s == null) return;
+                        final next = s.playMode == PlayMode.shuffle
+                            ? PlayMode.sequence
+                            : PlayMode.shuffle;
+                        ref
+                            .read(playerNotifierProvider.notifier)
+                            .setPlayMode(next);
+                      },
+                      child: Icon(
+                        Icons.shuffle,
+                        color: ref
+                                    .watch(playerNotifierProvider)
+                                    .valueOrNull
+                                    ?.playMode ==
+                                PlayMode.shuffle
+                            ? _kAmber
+                            : _kMuted,
+                        size: 22,
+                      ),
+                    ),
                     const SizedBox(width: 28),
                     _TvControlButton(
                       icon: Icons.skip_previous,
@@ -511,11 +515,48 @@ class _TvFullLyricScreenState extends ConsumerState<TvFullLyricScreen> {
                           ref.read(playerNotifierProvider.notifier).skipToNext(),
                     ),
                     const SizedBox(width: 28),
-                    const Icon(Icons.repeat, color: _kMuted, size: 22),
+                    GestureDetector(
+                      onTap: () {
+                        final s = ref
+                            .read(playerNotifierProvider)
+                            .valueOrNull;
+                        if (s == null) return;
+                        final isRepeat = s.playMode ==
+                                PlayMode.repeatAll ||
+                            s.playMode == PlayMode.repeatOne;
+                        ref
+                            .read(playerNotifierProvider.notifier)
+                            .setPlayMode(isRepeat
+                                ? PlayMode.sequence
+                                : PlayMode.repeatAll);
+                      },
+                      child: Icon(
+                        ref
+                                    .watch(playerNotifierProvider)
+                                    .valueOrNull
+                                    ?.playMode ==
+                                PlayMode.repeatOne
+                            ? Icons.repeat_one
+                            : Icons.repeat,
+                        color: (ref
+                                        .watch(playerNotifierProvider)
+                                        .valueOrNull
+                                        ?.playMode ==
+                                    PlayMode.repeatAll ||
+                                ref
+                                        .watch(playerNotifierProvider)
+                                        .valueOrNull
+                                        ?.playMode ==
+                                    PlayMode.repeatOne)
+                            ? _kAmber
+                            : _kMuted,
+                        size: 22,
+                      ),
+                    ),
                   ],
                 ),
                 const SizedBox(height: 8),
-                // Progress bar
+                // Progress slider
                 Row(
                   children: [
                     Text(
@@ -525,49 +566,33 @@ class _TvFullLyricScreenState extends ConsumerState<TvFullLyricScreen> {
                     ),
                     const SizedBox(width: 8),
                     Expanded(
-                      child: Stack(
-                        alignment: Alignment.centerLeft,
-                        children: [
-                          Container(
-                            height: 4,
-                            decoration: BoxDecoration(
-                              color: Colors.white.withValues(alpha: 0.1),
-                              borderRadius: BorderRadius.circular(999),
-                            ),
-                          ),
-                          FractionallySizedBox(
-                            widthFactor: progress,
-                            child: Container(
-                              height: 4,
-                              decoration: BoxDecoration(
-                                gradient: const LinearGradient(
-                                    colors: [_kBrand, _kAmber]),
-                                borderRadius: BorderRadius.circular(999),
-                              ),
-                            ),
-                          ),
-                          FractionallySizedBox(
-                            widthFactor: progress,
-                            child: Align(
-                              alignment: Alignment.centerRight,
-                              child: Container(
-                                width: 14,
-                                height: 14,
-                                decoration: BoxDecoration(
-                                  color: Colors.white,
-                                  shape: BoxShape.circle,
-                                  border: Border.all(
-                                      color: _kBrand, width: 2),
-                                  boxShadow: const [
-                                    BoxShadow(
-                                        color: Colors.black26,
-                                        blurRadius: 4),
-                                  ],
-                                ),
-                              ),
-                            ),
-                          ),
-                        ],
+                      child: SliderTheme(
+                        data: SliderThemeData(
+                          trackHeight: 4,
+                          activeTrackColor: _kAmber,
+                          inactiveTrackColor:
+                              Colors.white.withValues(alpha: 0.1),
+                          thumbColor: Colors.white,
+                          thumbShape:
+                              const RoundSliderThumbShape(
+                                  enabledThumbRadius: 7),
+                          overlayColor:
+                              _kAmber.withValues(alpha: 0.2),
+                        ),
+                        child: Slider(
+                          value: progress,
+                          onChanged: (v) {
+                            final pos = Duration(
+                              milliseconds:
+                                  (v * duration.inMilliseconds)
+                                      .round(),
+                            );
+                            ref
+                                .read(playerNotifierProvider
+                                    .notifier)
+                                .seekTo(pos);
+                          },
+                        ),
                       ),
                     ),
                     const SizedBox(width: 8),

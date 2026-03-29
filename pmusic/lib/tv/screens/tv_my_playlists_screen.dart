@@ -1,12 +1,11 @@
-import 'package:cached_network_image/cached_network_image.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
-import '../../core/api/music_api_client.dart';
 import '../../core/models/playlist.dart';
 import '../../features/playlist/playlist_notifier.dart';
 import '../../core/models/song.dart';
+import '../../mobile/widgets/song_cover_image.dart';
 import 'tv_playlist_detail_screen.dart';
 
 // ─── Design tokens (tv_my_playlists/code.html) ───────────────────────────────
@@ -51,7 +50,7 @@ class TvMyPlaylistsScreen extends ConsumerWidget {
                     crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
                       const Text(
-                        'My Playlists',
+                        '我的歌单',
                         style: TextStyle(
                           fontFamily: 'Plus Jakarta Sans',
                           fontSize: 13,
@@ -62,7 +61,7 @@ class TvMyPlaylistsScreen extends ConsumerWidget {
                       ),
                       const SizedBox(height: 8),
                       const Text(
-                        'Personal Curations',
+                        '个人精选',
                         style: TextStyle(
                           fontFamily: 'Plus Jakarta Sans',
                           fontSize: 48,
@@ -169,6 +168,7 @@ class TvMyPlaylistsScreen extends ConsumerWidget {
             child: TextField(
               controller: ctrl,
               autofocus: true,
+              onTapOutside: (_) {},
               style: const TextStyle(
                   color: _kOnSurface, fontSize: 18),
               decoration: InputDecoration(
@@ -262,9 +262,7 @@ class TvMyPlaylistsScreen extends ConsumerWidget {
                       fontSize: 18, color: Color(0xFFBA1A1A))),
               onTap: () {
                 Navigator.pop(ctx);
-                ref
-                    .read(playlistNotifierProvider.notifier)
-                    .delete(playlist.id);
+                _showDeleteConfirm(context, ref, playlist);
               },
             ),
           ],
@@ -275,6 +273,53 @@ class TvMyPlaylistsScreen extends ConsumerWidget {
             child: const Text('取消',
                 style: TextStyle(
                     color: _kOnSurfaceVariant, fontSize: 16)),
+          ),
+        ],
+      ),
+    );
+  }
+
+  void _showDeleteConfirm(
+      BuildContext context, WidgetRef ref, Playlist playlist) {
+    showDialog<void>(
+      context: context,
+      builder: (ctx) => AlertDialog(
+        backgroundColor: _kBackground,
+        shape: RoundedRectangleBorder(
+            borderRadius: BorderRadius.circular(24)),
+        title: const Text(
+          '删除歌单',
+          style: TextStyle(
+            fontFamily: 'Plus Jakarta Sans',
+            fontSize: 22,
+            fontWeight: FontWeight.w700,
+            color: Color(0xFFBA1A1A),
+          ),
+        ),
+        content: Text(
+          '确定删除「${playlist.name}」吗？此操作无法撤回。',
+          style: const TextStyle(
+              color: _kOnSurfaceVariant, fontSize: 16),
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(ctx),
+            child: const Text('取消',
+                style: TextStyle(
+                    color: _kOnSurfaceVariant, fontSize: 16)),
+          ),
+          TextButton(
+            onPressed: () {
+              Navigator.pop(ctx);
+              ref
+                  .read(playlistNotifierProvider.notifier)
+                  .delete(playlist.id);
+            },
+            child: const Text('删除',
+                style: TextStyle(
+                    color: Color(0xFFBA1A1A),
+                    fontWeight: FontWeight.w700,
+                    fontSize: 16)),
           ),
         ],
       ),
@@ -304,6 +349,7 @@ class TvMyPlaylistsScreen extends ConsumerWidget {
           child: TextField(
             controller: ctrl,
             autofocus: true,
+            onTapOutside: (_) {},
             style: const TextStyle(color: _kOnSurface, fontSize: 18),
             decoration: InputDecoration(
               filled: true,
@@ -395,7 +441,7 @@ class _TvCreateButtonState extends State<_TvCreateButton> {
               Icon(Icons.add, color: Colors.white, size: 24),
               SizedBox(width: 12),
               Text(
-                'Create Playlist',
+                '新建歌单',
                 style: TextStyle(
                   fontFamily: 'Plus Jakarta Sans',
                   color: Colors.white,
@@ -623,19 +669,14 @@ class _CardCover extends StatelessWidget {
           data: (song) {
             if (song == null) return _placeholder(playlistId);
             final s = song as Song;
-            final url = MusicApiClient.buildPicUrl(
-              s.source.param,
-              s.picId,
+            return SongCover(
+              source: s.source.param,
+              picId: s.picId,
               size: 400,
-            );
-            if (url.isEmpty) return _placeholder(playlistId);
-            return CachedNetworkImage(
-              imageUrl: url,
               fit: BoxFit.cover,
-              width: double.infinity,
-              height: double.infinity,
-              placeholder: (_, _) => _placeholder(playlistId),
-              errorWidget: (_, _, _) => _placeholder(playlistId),
+              width: 300,
+              height: 300,
+              borderRadius: 0,
             );
           },
           loading: () => _placeholder(playlistId),
@@ -680,63 +721,65 @@ class _EmptyState extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return Center(
-      child: Column(
-        mainAxisSize: MainAxisSize.min,
-        children: [
-          Container(
-            width: 96,
-            height: 96,
-            decoration: const BoxDecoration(
-              color: _kSurfaceContainerLow,
-              shape: BoxShape.circle,
+      child: SingleChildScrollView(
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            Container(
+              width: 80,
+              height: 80,
+              decoration: const BoxDecoration(
+                color: _kSurfaceContainerLow,
+                shape: BoxShape.circle,
+              ),
+              child: const Icon(
+                Icons.library_music,
+                color: _kPrimary,
+                size: 40,
+              ),
             ),
-            child: const Icon(
-              Icons.library_music,
-              color: _kPrimary,
-              size: 48,
+            const SizedBox(height: 16),
+            const Text(
+              '还没有歌单',
+              style: TextStyle(
+                fontFamily: 'Plus Jakarta Sans',
+                fontSize: 24,
+                fontWeight: FontWeight.w700,
+                color: _kOnSurface,
+              ),
             ),
-          ),
-          const SizedBox(height: 24),
-          const Text(
-            '还没有歌单',
-            style: TextStyle(
-              fontFamily: 'Plus Jakarta Sans',
-              fontSize: 28,
-              fontWeight: FontWeight.w700,
-              color: _kOnSurface,
+            const SizedBox(height: 8),
+            const Text(
+              '点击右上角按钮创建你的第一个歌单',
+              style: TextStyle(
+                fontSize: 16,
+                color: _kOnSurfaceVariant,
+              ),
             ),
-          ),
-          const SizedBox(height: 12),
-          const Text(
-            '点击右上角按钮创建你的第一个歌单',
-            style: TextStyle(
-              fontSize: 18,
-              color: _kOnSurfaceVariant,
-            ),
-          ),
-          const SizedBox(height: 32),
-          Focus(
-            child: GestureDetector(
-              onTap: onCreateTap,
-              child: Container(
-                padding: const EdgeInsets.symmetric(
-                    horizontal: 32, vertical: 14),
-                decoration: BoxDecoration(
-                  color: _kPrimaryContainer,
-                  borderRadius: BorderRadius.circular(12),
-                ),
-                child: const Text(
-                  '立即创建',
-                  style: TextStyle(
-                    color: _kOnPrimaryContainer,
-                    fontWeight: FontWeight.w700,
-                    fontSize: 16,
+            const SizedBox(height: 24),
+            Focus(
+              child: GestureDetector(
+                onTap: onCreateTap,
+                child: Container(
+                  padding: const EdgeInsets.symmetric(
+                      horizontal: 32, vertical: 14),
+                  decoration: BoxDecoration(
+                    color: _kPrimaryContainer,
+                    borderRadius: BorderRadius.circular(12),
+                  ),
+                  child: const Text(
+                    '立即创建',
+                    style: TextStyle(
+                      color: _kOnPrimaryContainer,
+                      fontWeight: FontWeight.w700,
+                      fontSize: 16,
+                    ),
                   ),
                 ),
               ),
             ),
-          ),
-        ],
+          ],
+        ),
       ),
     );
   }

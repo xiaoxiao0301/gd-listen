@@ -19,8 +19,37 @@ class MusicApiClient {
   // Helpers
   // ---------------------------------------------------------------------------
 
-  /// Returns the cover-art URL for a given [picId].
-  /// No network call — URL constructed locally.
+  /// Resolves the cover-art URL for [picId] by calling the API.
+  ///
+  /// The API returns `{"url": "https://cdn.../cover.jpg", "from": "..."}`.
+  /// Use [picUrlProvider] (in `core/providers.dart`) which caches the result.
+  Future<String> getPicUrl({
+    required String source,
+    required String picId,
+    int size = 300,
+  }) async {
+    if (picId.isEmpty) return '';
+    // If pic_id is already a full URL (some sources return this directly)
+    if (picId.startsWith('http')) return picId;
+    try {
+      final resp = await _dio.get<dynamic>(_baseUrl, queryParameters: {
+        'types': 'pic',
+        'source': source,
+        'id': picId,
+        'size': size,
+      });
+      final data = resp.data;
+      if (data is Map<String, dynamic>) {
+        final url = data['url'] as String? ?? '';
+        return url;
+      }
+    } catch (_) {}
+    return '';
+  }
+
+  /// @deprecated Use [getPicUrl] (async) via [picUrlProvider] instead.
+  ///
+  /// Kept as a reference for the URL pattern only.
   static String buildPicUrl(String source, String picId,
       {int size = 300}) {
     if (picId.isEmpty) return '';

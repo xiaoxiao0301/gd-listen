@@ -1,14 +1,13 @@
 import 'dart:math';
 
-import 'package:cached_network_image/cached_network_image.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
-import '../../core/api/music_api_client.dart';
 import '../../core/models/song.dart';
 import '../../features/favorite/favorite_notifier.dart';
 import '../../features/player/player_notifier.dart';
+import '../../mobile/widgets/song_cover_image.dart';
 
 // ─── Design tokens (tv_favorites_aligned/code.html) ──────────────────────────
 
@@ -305,10 +304,6 @@ class _FavCardState extends State<_FavCard> {
 
   @override
   Widget build(BuildContext context) {
-    final picUrl = MusicApiClient.buildPicUrl(
-        widget.song.source.param, widget.song.picId,
-        size: 300);
-
     return Focus(
       onFocusChange: (v) => setState(() => _focused = v),
       onKeyEvent: (_, event) {
@@ -352,17 +347,15 @@ class _FavCardState extends State<_FavCard> {
                     children: [
                       ClipRRect(
                         borderRadius: BorderRadius.circular(8),
-                        child: picUrl.isNotEmpty
-                            ? CachedNetworkImage(
-                                imageUrl: picUrl,
-                                width: double.infinity,
-                                fit: BoxFit.cover,
-                                placeholder: (_, _) =>
-                                    const _CardPlaceholder(),
-                                errorWidget: (_, _, _) =>
-                                    const _CardPlaceholder(),
-                              )
-                            : const _CardPlaceholder(),
+                        child: SongCover(
+                          source: widget.song.source.param,
+                          picId: widget.song.picId,
+                          size: 300,
+                          width: 200,
+                          height: 200,
+                          borderRadius: 8,
+                          fit: BoxFit.cover,
+                        ),
                       ),
                       // Heart badge
                       Positioned(
@@ -411,22 +404,4 @@ class _FavCardState extends State<_FavCard> {
       ),
     );
   }
-}
-
-class _CardPlaceholder extends StatelessWidget {
-  const _CardPlaceholder();
-
-  @override
-  Widget build(BuildContext context) => Container(
-        decoration: const BoxDecoration(
-          gradient: LinearGradient(
-            colors: [Color(0xFFD49A5A), Color(0xFFBF7340)],
-            begin: Alignment.topLeft,
-            end: Alignment.bottomRight,
-          ),
-        ),
-        child: const Center(
-          child: Icon(Icons.music_note, color: Colors.white54, size: 32),
-        ),
-      );
 }

@@ -1,13 +1,12 @@
-import 'package:cached_network_image/cached_network_image.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
-import '../../core/api/music_api_client.dart';
 import '../../features/history/history_notifier.dart';
 import '../../features/history/history_repository.dart';
 import '../../features/player/player_notifier.dart';
 import '../widgets/mini_player.dart';
 import '../widgets/song_action_sheet.dart';
+import '../widgets/song_cover_image.dart';
 
 // ─── Design tokens (play_history/code.html) ───────────────────────────────────
 
@@ -253,10 +252,6 @@ class _HistorySongRowState extends State<_HistorySongRow> {
   @override
   Widget build(BuildContext context) {
     final song = widget.entry.song;
-    final picUrl = MusicApiClient.buildPicUrl(
-        song.source.param, song.picId,
-        size: 200);
-
     return MouseRegion(
       onEnter: (_) => setState(() => _hovering = true),
       onExit: (_) => setState(() => _hovering = false),
@@ -273,20 +268,7 @@ class _HistorySongRowState extends State<_HistorySongRow> {
           child: Row(
             children: [
               // Album cover
-              ClipRRect(
-                borderRadius: BorderRadius.circular(8),
-                child: picUrl.isNotEmpty
-                    ? CachedNetworkImage(
-                        imageUrl: picUrl,
-                        width: 48,
-                        height: 48,
-                        fit: BoxFit.cover,
-                        placeholder: (_, _) => const _SmallPlaceholder(),
-                        errorWidget: (_, _, _) =>
-                            const _SmallPlaceholder(),
-                      )
-                    : const _SmallPlaceholder(),
-              ),
+              SongCover(source: song.source.param, picId: song.picId, size: 200, width: 48, height: 48),
               const SizedBox(width: 16),
 
               // Song info
@@ -356,20 +338,4 @@ class _HistorySongRowState extends State<_HistorySongRow> {
       ),
     );
   }
-}
-
-class _SmallPlaceholder extends StatelessWidget {
-  const _SmallPlaceholder();
-
-  @override
-  Widget build(BuildContext context) => Container(
-        width: 48,
-        height: 48,
-        decoration: const BoxDecoration(
-          gradient: LinearGradient(
-            colors: [Color(0xFFD49A5A), Color(0xFFBF7340)],
-          ),
-        ),
-        child: const Icon(Icons.history, color: Colors.white70, size: 22),
-      );
 }

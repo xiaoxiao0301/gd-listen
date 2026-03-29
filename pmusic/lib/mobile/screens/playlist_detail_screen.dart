@@ -1,14 +1,13 @@
 import 'dart:math';
 
-import 'package:cached_network_image/cached_network_image.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
-import '../../core/api/music_api_client.dart';
 import '../../core/models/song.dart';
 import '../../features/player/player_notifier.dart';
 import '../../features/playlist/playlist_notifier.dart';
 import '../widgets/mini_player.dart';
+import '../widgets/song_cover_image.dart';
 
 // ─── Design tokens (playlist_detail/code.html) ───────────────────────────────
 
@@ -454,18 +453,16 @@ class _HeroMosaic extends StatelessWidget {
             padding: EdgeInsets.zero,
             children: List.generate(4, (i) {
               final song = i < songs.length ? songs[i] : null;
-              final picUrl = song != null
-                  ? MusicApiClient.buildPicUrl(
-                      song.source.param, song.picId,
-                      size: 300)
-                  : '';
               final grads = _gradients[i % _gradients.length];
-              if (picUrl.isNotEmpty) {
-                return CachedNetworkImage(
-                  imageUrl: picUrl,
+              if (song != null) {
+                return SongCover(
+                  source: song.source.param,
+                  picId: song.picId,
+                  size: 300,
                   fit: BoxFit.cover,
-                  placeholder: (_, _) => _GradCell(grads: grads),
-                  errorWidget: (_, _, _) => _GradCell(grads: grads),
+                  width: 200,
+                  height: 200,
+                  borderRadius: 0,
                 );
               }
               return _GradCell(grads: grads);
@@ -648,9 +645,6 @@ class _SongRow extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final picUrl = MusicApiClient.buildPicUrl(
-        song.source.param, song.picId,
-        size: 200);
     final textColor = isPlaying ? _kPrimary : _kOnSurface;
     final subColor = isPlaying ? _kPrimaryContainer : _kOnSurfaceVariant;
 
@@ -701,21 +695,7 @@ class _SongRow extends StatelessWidget {
                 const SizedBox(width: 4),
 
                 // Album cover
-                ClipRRect(
-                  borderRadius: BorderRadius.circular(8),
-                  child: picUrl.isNotEmpty
-                      ? CachedNetworkImage(
-                          imageUrl: picUrl,
-                          width: 48,
-                          height: 48,
-                          fit: BoxFit.cover,
-                          placeholder: (_, _) =>
-                              const _CoverPlaceholder(),
-                          errorWidget: (_, _, _) =>
-                              const _CoverPlaceholder(),
-                        )
-                      : const _CoverPlaceholder(),
-                ),
+                SongCover(source: song.source.param, picId: song.picId, size: 200, width: 48, height: 48),
 
                 const SizedBox(width: 16),
 
@@ -779,24 +759,4 @@ class _SongRow extends StatelessWidget {
       ),
     );
   }
-}
-
-class _CoverPlaceholder extends StatelessWidget {
-  const _CoverPlaceholder();
-
-  @override
-  Widget build(BuildContext context) => Container(
-        width: 48,
-        height: 48,
-        decoration: BoxDecoration(
-          gradient: const LinearGradient(
-            colors: [Color(0xFFD49A5A), Color(0xFFBF7340)],
-            begin: Alignment.topLeft,
-            end: Alignment.bottomRight,
-          ),
-          borderRadius: BorderRadius.circular(8),
-        ),
-        child: const Icon(Icons.music_note,
-            color: Colors.white70, size: 22),
-      );
 }

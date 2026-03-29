@@ -121,13 +121,39 @@ ThemeData buildMobileTheme() {
 }
 
 /// Builds a TV-scaled variant of the warm theme (1.5× font sizes).
+///
+/// `TextTheme.apply(fontSizeFactor:)` crashes when any style has a null
+/// `fontSize` (the Flutter default). We copy each style individually so
+/// only non-null sizes are scaled.
 ThemeData buildTvTheme() {
   final base = buildMobileTheme();
+
+  TextStyle scale(TextStyle? s) {
+    if (s == null) return const TextStyle(color: WarmColors.textPrimary);
+    return s.copyWith(
+      fontSize: s.fontSize != null ? s.fontSize! * 1.5 : null,
+      color: s.color ?? WarmColors.textPrimary,
+    );
+  }
+
+  final tt = base.textTheme;
   return base.copyWith(
-    textTheme: base.textTheme.apply(
-      fontSizeFactor: 1.5,
-      bodyColor: WarmColors.textPrimary,
-      displayColor: WarmColors.textPrimary,
+    textTheme: TextTheme(
+      displayLarge: scale(tt.displayLarge),
+      displayMedium: scale(tt.displayMedium),
+      displaySmall: scale(tt.displaySmall),
+      headlineLarge: scale(tt.headlineLarge),
+      headlineMedium: scale(tt.headlineMedium),
+      headlineSmall: scale(tt.headlineSmall),
+      titleLarge: scale(tt.titleLarge),
+      titleMedium: scale(tt.titleMedium),
+      titleSmall: scale(tt.titleSmall),
+      bodyLarge: scale(tt.bodyLarge),
+      bodyMedium: scale(tt.bodyMedium),
+      bodySmall: scale(tt.bodySmall),
+      labelLarge: scale(tt.labelLarge),
+      labelMedium: scale(tt.labelMedium),
+      labelSmall: scale(tt.labelSmall),
     ),
   );
 }

@@ -1,11 +1,10 @@
 import 'dart:ui';
 
-import 'package:cached_network_image/cached_network_image.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
-import '../../core/api/music_api_client.dart';
 import '../../features/player/player_notifier.dart';
+import 'song_cover_image.dart';
 
 // ─── Design tokens ────────────────────────────────────────────────────────────
 
@@ -70,9 +69,6 @@ class _MiniPlayerState extends ConsumerState<MiniPlayer>
                     state.duration.inMilliseconds)
                 .clamp(0.0, 1.0)
             : 0.0;
-
-        final picUrl =
-            MusicApiClient.buildPicUrl(song.source.param, song.picId);
 
         return GestureDetector(
             onTap: widget.onTap,
@@ -144,17 +140,12 @@ class _MiniPlayerState extends ConsumerState<MiniPlayer>
                                     width: 1.5,
                                   ),
                                 ),
-                                child: ClipOval(
-                                  child: picUrl.isNotEmpty
-                                      ? CachedNetworkImage(
-                                          imageUrl: picUrl,
-                                          fit: BoxFit.cover,
-                                          placeholder: (_, _) =>
-                                              _MusicDisc(),
-                                          errorWidget: (_, _, _) =>
-                                              _MusicDisc(),
-                                        )
-                                      : _MusicDisc(),
+                                child: SongCover(
+                                  source: song.source.param,
+                                  picId: song.picId,
+                                  width: 40,
+                                  height: 40,
+                                  oval: true,
                                 ),
                               ),
                             ),

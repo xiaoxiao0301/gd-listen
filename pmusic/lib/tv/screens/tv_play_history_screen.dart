@@ -1,11 +1,12 @@
-import 'package:cached_network_image/cached_network_image.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
-import '../../core/api/music_api_client.dart';
+import '../../features/favorite/favorite_notifier.dart';
 import '../../features/history/history_notifier.dart';
 import '../../features/history/history_repository.dart';
 import '../../features/player/player_notifier.dart';
+import '../../features/playlist/playlist_notifier.dart';
+import '../../mobile/widgets/song_cover_image.dart';
 // (TvMiniPlayerBar managed by TvAppShell)
 
 // ─── Design tokens (tv_play_history/code.html) ───────────────────────────────
@@ -86,7 +87,7 @@ class _TvPlayHistoryScreenState extends ConsumerState<TvPlayHistoryScreen> {
                         ),
                         const SizedBox(height: 6),
                         const Text(
-                          'Your sonic journey, curated by time.',
+                          '按日期分组，记录你的每一次聆听',
                           style: TextStyle(
                             fontFamily: 'Be Vietnam Pro',
                             fontSize: 16,
@@ -180,6 +181,8 @@ class _TvPlayHistoryScreenState extends ConsumerState<TvPlayHistoryScreen> {
                                         .toList(),
                                     startIndex: index);
                           },
+                          onMore: () => _showTvSongActionDialog(
+                              context, ref, entry.song),
                         );
                       },
                       childCount: group.entries.length,
@@ -193,6 +196,153 @@ class _TvPlayHistoryScreenState extends ConsumerState<TvPlayHistoryScreen> {
           ],
         ),
       ],
+    );
+  }
+
+  void _showTvSongActionDialog(
+      BuildContext context, WidgetRef ref, song) {
+    final s = song as dynamic;
+    showDialog<void>(
+      context: context,
+      builder: (ctx) => AlertDialog(
+        backgroundColor: _kBackground,
+        shape: RoundedRectangleBorder(
+            borderRadius: BorderRadius.circular(24)),
+        title: Text(
+          s.name as String,
+          style: const TextStyle(
+            fontFamily: 'Plus Jakarta Sans',
+            fontSize: 18,
+            fontWeight: FontWeight.w700,
+            color: _kOnSurface,
+          ),
+          maxLines: 1,
+          overflow: TextOverflow.ellipsis,
+        ),
+        content: Consumer(
+          builder: (ctx2, ref2, _) {
+            final isFav = ref2
+                    .watch(favoriteNotifierProvider)
+                    .valueOrNull
+                    ?.isFavorite(song) ??
+                false;
+            return Column(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                ListTile(
+                  shape: RoundedRectangleBorder(
+                      borderRadius: BorderRadius.circular(12)),
+                  leading: const Icon(Icons.play_arrow,
+                      color: _kPrimary),
+                  title: const Text('立即播放',
+                      style: TextStyle(
+                          fontSize: 16, color: _kOnSurface)),
+                  onTap: () {
+                    Navigator.pop(ctx);
+                    ref2
+                        .read(playerNotifierProvider.notifier)
+                        .setQueue([song], startIndex: 0);
+                  },
+                ),
+                ListTile(
+                  shape: RoundedRectangleBorder(
+                      borderRadius: BorderRadius.circular(12)),
+                  leading: const Icon(Icons.add_to_queue,
+                      color: _kPrimary),
+                  title: const Text('添加到队列末尾',
+                      style: TextStyle(
+                          fontSize: 16, color: _kOnSurface)),
+                  onTap: () {
+                    Navigator.pop(ctx);
+                    ref2
+                        .read(playerNotifierProvider.notifier)
+                        .addToQueue(song);
+                  },
+                ),
+                ListTile(
+                  shape: RoundedRectangleBorder(
+                      borderRadius: BorderRadius.circular(12)),
+                  leading: Icon(
+                      isFav
+                          ? Icons.favorite
+                          : Icons.favorite_border,
+                      color: _kPrimary),
+                  title: Text(
+                      isFav ? '取消收藏' : '收藏',
+                      style: const TextStyle(
+                          fontSize: 16, color: _kOnSurface)),
+                  onTap: () {
+                    Navigator.pop(ctx);
+                    ref2
+                        .read(favoriteNotifierProvider.notifier)
+                        .toggle(song);
+                  },
+                ),
+                ListTile(
+                  shape: RoundedRectangleBorder(
+                      borderRadius: BorderRadius.circular(12)),
+                  leading: const Icon(Icons.playlist_add,
+                      color: _kPrimary),
+                  title: const Text('加入歌单',
+                      style: TextStyle(
+                          fontSize: 16, color: _kOnSurface)),
+                  onTap: () {
+                    Navigator.pop(ctx);
+                    _showAddToPlaylistDialog(context, ref2, song);
+                  },
+                ),
+              ],
+            );
+          },
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(ctx),
+            child: const Text('关闭',
+                style: TextStyle(
+                    color: _kOnSurfaceVariant, fontSize: 16)),
+          ),
+        ],
+      ),
+    );
+  }
+
+  void _showAddToPlaylistDialog(
+      BuildContext context, WidgetRef ref, song) {
+    final playlists =
+        ref.read(playlistNotifierProvider).valueOrNull?.playlists ?? [];
+    if (playlists.isEmpty) return;
+    showDialog<void>(
+      context: context,
+      builder: (ctx) => AlertDialog(
+        backgroundColor: _kBackground,
+        shape: RoundedRectangleBorder(
+            borderRadius: BorderRadius.circular(24)),
+        title: const Text('加入歌单',
+            style: TextStyle(
+                fontFamily: 'Plus Jakarta Sans',
+                fontSize: 18,
+                fontWeight: FontWeight.w700,
+                color: _kOnSurface)),
+        content: SizedBox(
+          width: 400,
+          child: ListView.builder(
+            shrinkWrap: true,
+            itemCount: playlists.length,
+            itemBuilder: (_, i) => ListTile(
+              title: Text(playlists[i].name,
+                  style: const TextStyle(
+                      fontSize: 16, color: _kOnSurface)),
+              onTap: () {
+                Navigator.pop(ctx);
+                ref
+                    .read(playlistNotifierProvider.notifier)
+                    .addSong(playlists[i].id, song);
+              },
+            ),
+          ),
+        ),
+      ),
     );
   }
 
@@ -279,10 +429,12 @@ class _TvHistorySongRow extends StatefulWidget {
   const _TvHistorySongRow({
     required this.entry,
     required this.onTap,
+    required this.onMore,
   });
 
   final HistoryEntry entry;
   final VoidCallback onTap;
+  final VoidCallback onMore;
 
   @override
   State<_TvHistorySongRow> createState() => _TvHistorySongRowState();
@@ -307,9 +459,6 @@ class _TvHistorySongRowState extends State<_TvHistorySongRow> {
   @override
   Widget build(BuildContext context) {
     final song = widget.entry.song;
-    final picUrl = MusicApiClient.buildPicUrl(
-        song.source.param, song.picId,
-        size: 400);
     final timeStr = _formatTime(widget.entry.playedAt);
     final countStr = 'x${widget.entry.playCount}';
 
@@ -351,18 +500,13 @@ class _TvHistorySongRowState extends State<_TvHistorySongRow> {
                   child: Stack(
                     fit: StackFit.expand,
                     children: [
-                      ClipRRect(
-                        borderRadius: BorderRadius.circular(12),
-                        child: picUrl.isNotEmpty
-                            ? CachedNetworkImage(
-                                imageUrl: picUrl,
-                                fit: BoxFit.cover,
-                                placeholder: (_, _) =>
-                                    const _TvPlaceholder(),
-                                errorWidget: (_, _, _) =>
-                                    const _TvPlaceholder(),
-                              )
-                            : const _TvPlaceholder(),
+                      SongCover(
+                        source: song.source.param,
+                        picId: song.picId,
+                        size: 400,
+                        width: 96,
+                        height: 96,
+                        borderRadius: 12,
                       ),
                       // Play circle overlay when focused
                       AnimatedOpacity(
@@ -465,10 +609,13 @@ class _TvHistorySongRowState extends State<_TvHistorySongRow> {
                     const SizedBox(width: 16),
 
                     // More vert
-                    Icon(
-                      Icons.more_vert,
-                      color: _focused ? _kPrimary : _kOutline,
-                      size: 24,
+                    GestureDetector(
+                      onTap: widget.onMore,
+                      child: Icon(
+                        Icons.more_vert,
+                        color: _focused ? _kPrimary : _kOutline,
+                        size: 24,
+                      ),
                     ),
                     const SizedBox(width: 8),
                   ],
@@ -480,20 +627,4 @@ class _TvHistorySongRowState extends State<_TvHistorySongRow> {
       ),
     );
   }
-}
-
-class _TvPlaceholder extends StatelessWidget {
-  const _TvPlaceholder();
-
-  @override
-  Widget build(BuildContext context) => Container(
-        decoration: const BoxDecoration(
-          gradient: LinearGradient(
-            colors: [Color(0xFFD49A5A), Color(0xFFBF7340)],
-            begin: Alignment.topLeft,
-            end: Alignment.bottomRight,
-          ),
-        ),
-        child: const Icon(Icons.history, color: Colors.white70, size: 40),
-      );
 }

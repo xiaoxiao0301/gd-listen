@@ -148,66 +148,6 @@ class _TvAppShellState extends ConsumerState<TvAppShell> {
                           onTap: () => setState(() => _currentIndex = i),
                         ),
                       const Spacer(),
-                      // Profile / user card (expanded only)
-                      if (_sidebarFocused)
-                        Padding(
-                          padding: const EdgeInsets.fromLTRB(12, 0, 12, 24),
-                          child: Container(
-                            padding: const EdgeInsets.all(12),
-                            decoration: BoxDecoration(
-                              color: const Color(0xFFF5F3EE),
-                              borderRadius: BorderRadius.circular(16),
-                            ),
-                            child: Row(
-                              children: [
-                                CircleAvatar(
-                                  radius: 18,
-                                  backgroundColor:
-                                      WarmColors.primary.withValues(alpha: 0.2),
-                                  child: const Icon(
-                                    Icons.person,
-                                    color: WarmColors.primary,
-                                    size: 20,
-                                  ),
-                                ),
-                                const SizedBox(width: 10),
-                                const Expanded(
-                                  child: Column(
-                                    crossAxisAlignment:
-                                        CrossAxisAlignment.start,
-                                    children: [
-                                      Text(
-                                        'The Collector',
-                                        style: TextStyle(
-                                          fontFamily: 'Plus Jakarta Sans',
-                                          fontSize: 13,
-                                          fontWeight: FontWeight.w700,
-                                          color: WarmColors.textPrimary,
-                                        ),
-                                      ),
-                                      Text(
-                                        'Premium Member',
-                                        style: TextStyle(
-                                          fontSize: 11,
-                                          color: WarmColors.textSecondary,
-                                        ),
-                                      ),
-                                    ],
-                                  ),
-                                ),
-                              ],
-                            ),
-                          ),
-                        )
-                      else
-                        Padding(
-                          padding: const EdgeInsets.only(bottom: 24),
-                          child: const Icon(
-                            Icons.person_outline,
-                            color: WarmColors.textSecondary,
-                            size: 24,
-                          ),
-                        ),
                     ],
                   ),
                 ),

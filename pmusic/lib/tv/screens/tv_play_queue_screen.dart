@@ -1,10 +1,9 @@
-import 'package:cached_network_image/cached_network_image.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
-import '../../core/api/music_api_client.dart';
 import '../../core/models/song.dart';
 import '../../features/player/player_notifier.dart';
+import '../../mobile/widgets/song_cover_image.dart';
 
 // ─── Design tokens ────────────────────────────────────────────────────────────
 
@@ -79,9 +78,9 @@ class TvPlayQueueScreen extends ConsumerWidget {
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-                Text(
-                  'Current Queue',
-                  style: const TextStyle(
+                const Text(
+                  '当前播放队列',
+                  style: TextStyle(
                     fontSize: 32,
                     fontWeight: FontWeight.w800,
                     color: _kOnSurface,
@@ -92,7 +91,7 @@ class TvPlayQueueScreen extends ConsumerWidget {
                 ),
                 const SizedBox(height: 16),
                 Text(
-                  '$count TRACKS',
+                  '共 $count 首',
                   style: const TextStyle(
                     fontSize: 12,
                     fontWeight: FontWeight.w600,
@@ -134,7 +133,7 @@ class TvPlayQueueScreen extends ConsumerWidget {
                             size: 20, color: _kPrimary),
                         const SizedBox(width: 8),
                         const Text(
-                          'Clear Queue',
+                          '清空队列',
                           style: TextStyle(
                             fontSize: 14,
                             fontWeight: FontWeight.w700,
@@ -238,8 +237,6 @@ class _TvQueueItemRowState extends State<_TvQueueItemRow> {
 
   @override
   Widget build(BuildContext context) {
-    final picUrl = MusicApiClient.buildPicUrl(
-        widget.song.source.param, widget.song.picId);
     final highlighted = _focused || widget.isActive;
 
     return Focus(
@@ -303,7 +300,7 @@ class _TvQueueItemRowState extends State<_TvQueueItemRow> {
               ),
 
               // Album art
-              _TvAlbumThumb(url: picUrl, isActive: widget.isActive),
+              _TvAlbumThumb(source: widget.song.source.param, picId: widget.song.picId, isActive: widget.isActive),
               const SizedBox(width: 24),
 
               // Song info
@@ -391,8 +388,9 @@ class _TvQueueItemRowState extends State<_TvQueueItemRow> {
 // ─── TV album thumbnail ────────────────────────────────────────────────────────
 
 class _TvAlbumThumb extends StatelessWidget {
-  const _TvAlbumThumb({required this.url, required this.isActive});
-  final String url;
+  const _TvAlbumThumb({required this.source, required this.picId, required this.isActive});
+  final String source;
+  final String picId;
   final bool isActive;
 
   @override
@@ -405,14 +403,7 @@ class _TvAlbumThumb extends StatelessWidget {
         child: Stack(
           fit: StackFit.expand,
           children: [
-            url.isNotEmpty
-                ? CachedNetworkImage(
-                    imageUrl: url,
-                    fit: BoxFit.cover,
-                  placeholder: (_, p) => _placeholder(),
-                  errorWidget: (_, e, _) => _placeholder(),
-                  )
-                : _placeholder(),
+            SongCover(source: source, picId: picId, width: 64, height: 64, borderRadius: 0),
             if (isActive)
               Container(
                 color: _kPrimary.withValues(alpha: 0.4),
@@ -428,11 +419,6 @@ class _TvAlbumThumb extends StatelessWidget {
     );
   }
 
-  Widget _placeholder() => Container(
-        color: const Color(0xFFE2A05B).withValues(alpha: 0.15),
-        child: const Icon(Icons.music_note,
-            color: Color(0xFFE2A05B), size: 28),
-      );
 }
 
 // ─── Loading view ─────────────────────────────────────────────────────────────

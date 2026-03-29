@@ -1,15 +1,16 @@
 import 'dart:async';
 
-import 'package:cached_network_image/cached_network_image.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
-import '../../core/api/music_api_client.dart';
 import '../../core/models/enums.dart';
 import '../../core/models/song.dart';
+import '../../features/favorite/favorite_notifier.dart';
+import '../../features/lyric/lyric_notifier.dart';
 import '../../features/player/player_notifier.dart';
 import '../../mobile/widgets/lyric_scroll_view.dart';
+import '../../mobile/widgets/song_cover_image.dart';
 import 'tv_full_lyric_screen.dart';
 
 // ─── Design tokens ────────────────────────────────────────────────────────────
@@ -44,11 +45,32 @@ class TvFullPlayerScreen extends ConsumerStatefulWidget {
 class _TvFullPlayerScreenState extends ConsumerState<TvFullPlayerScreen> {
   bool _controlsVisible = true;
   Timer? _hideTimer;
-  final double _volume = 0.8;
+  Timer? _clockTimer;
+  String _timeStr = '';
+  static const double _volume = 0.8;
+
+  String _nowTime() {
+    final now = DateTime.now();
+    return '${now.hour.toString().padLeft(2, '0')}:${now.minute.toString().padLeft(2, '0')}';
+  }
+
+  void _cyclePlayMode(PlayMode current) {
+    final next = switch (current) {
+      PlayMode.sequence => PlayMode.shuffle,
+      PlayMode.shuffle => PlayMode.repeatAll,
+      PlayMode.repeatAll => PlayMode.repeatOne,
+      PlayMode.repeatOne => PlayMode.sequence,
+    };
+    ref.read(playerNotifierProvider.notifier).setPlayMode(next);
+  }
 
   @override
   void initState() {
     super.initState();
+    _timeStr = _nowTime();
+    _clockTimer = Timer.periodic(const Duration(seconds: 30), (_) {
+      if (mounted) setState(() => _timeStr = _nowTime());
+    });
     _resetHideTimer();
     HardwareKeyboard.instance.addHandler(_handleKey);
   }
@@ -56,6 +78,7 @@ class _TvFullPlayerScreenState extends ConsumerState<TvFullPlayerScreen> {
   @override
   void dispose() {
     _hideTimer?.cancel();
+    _clockTimer?.cancel();
     HardwareKeyboard.instance.removeHandler(_handleKey);
     super.dispose();
   }
@@ -108,9 +131,7 @@ class _TvFullPlayerScreenState extends ConsumerState<TvFullPlayerScreen> {
   @override
   Widget build(BuildContext context) {
     final playerAsync = ref.watch(playerNotifierProvider);
-    final now = DateTime.now();
-    final timeStr =
-        '${now.hour.toString().padLeft(2, '0')}:${now.minute.toString().padLeft(2, '0')}';
+    final favoriteAsync = ref.watch(favoriteNotifierProvider);
 
     return playerAsync.when(
       loading: () => const _TvLoadingView(),
@@ -122,17 +143,13 @@ class _TvFullPlayerScreenState extends ConsumerState<TvFullPlayerScreen> {
           return const _TvLoadingView();
         }
 
+        final isFav = favoriteAsync.valueOrNull?.isFavorite(song) ?? false;
         final progress = state.duration.inMilliseconds > 0
             ? (state.position.inMilliseconds /
                     state.duration.inMilliseconds)
                 .clamp(0.0, 1.0)
                 .toDouble()
             : 0.0;
-        final coverUrl = MusicApiClient.buildPicUrl(
-          song.source.param,
-          song.picId,
-          size: 500,
-        );
 
         return Scaffold(
           backgroundColor: Colors.transparent,
@@ -159,7 +176,7 @@ class _TvFullPlayerScreenState extends ConsumerState<TvFullPlayerScreen> {
                         SizedBox(
                           width: MediaQuery.of(context).size.width * 0.45 - 96,
                           child: Center(
-                            child: _buildAlbumCover(coverUrl),
+                            child: _buildAlbumCover(song),
                           ),
                         ),
                         // Right 55%: Info + Controls
@@ -170,8 +187,10 @@ class _TvFullPlayerScreenState extends ConsumerState<TvFullPlayerScreen> {
                               crossAxisAlignment: CrossAxisAlignment.start,
                               mainAxisAlignment: MainAxisAlignment.center,
                               children: [
-                                _buildSongInfo(song),
-                                const SizedBox(height: 48),
+                                _buildSongInfo(song, isFav),
+                                const SizedBox(height: 24),
+                                _TvInlineLyricLine(song: song),
+                                const SizedBox(height: 24),
                                 _buildProgressBar(state, progress),
                                 const SizedBox(height: 64),
                                 AnimatedOpacity(
@@ -243,7 +262,7 @@ class _TvFullPlayerScreenState extends ConsumerState<TvFullPlayerScreen> {
                             ),
                           ),
                           child: Text(
-                            timeStr,
+                            _timeStr,
                             style: const TextStyle(
                               fontSize: 18,
                               fontWeight: FontWeight.w500,
@@ -266,7 +285,7 @@ class _TvFullPlayerScreenState extends ConsumerState<TvFullPlayerScreen> {
 
   // ── Album cover ────────────────────────────────────────────────────────────
 
-  Widget _buildAlbumCover(String url) {
+  Widget _buildAlbumCover(Song song) {
     return Container(
       width: 500,
       height: 500,
@@ -287,62 +306,68 @@ class _TvFullPlayerScreenState extends ConsumerState<TvFullPlayerScreen> {
       ),
       child: ClipRRect(
         borderRadius: BorderRadius.circular(20),
-        child: url.isNotEmpty
-            ? CachedNetworkImage(
-                imageUrl: url,
-                fit: BoxFit.cover,
-                placeholder: (_, _) => Container(
-                  color: _kAmber.withValues(alpha: 0.15),
-                  child: const Icon(Icons.music_note,
-                      color: _kAmber, size: 80),
-                ),
-                errorWidget: (_, _, _) => Container(
-                  color: _kAmber.withValues(alpha: 0.15),
-                  child: const Icon(Icons.music_note,
-                      color: _kAmber, size: 80),
-                ),
-              )
-            : Container(
-                color: _kAmber.withValues(alpha: 0.15),
-                child: const Icon(Icons.music_note,
-                    color: _kAmber, size: 80),
-              ),
+        child: SongCover(
+          source: song.source.param,
+          picId: song.picId,
+          size: 500,
+          width: 500,
+          height: 500,
+          borderRadius: 0,
+          fit: BoxFit.cover,
+        ),
       ),
     );
   }
 
   // ── Song info ──────────────────────────────────────────────────────────────
 
-  Widget _buildSongInfo(Song song) {
-    return Column(
+  Widget _buildSongInfo(Song song, bool isFav) {
+    return Row(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
-        Text(
-          song.name,
-          style: const TextStyle(
-            fontSize: 56,
-            fontWeight: FontWeight.w800,
-            color: _kWhite,
-            fontFamily: 'Plus Jakarta Sans',
-            height: 1.1,
-            letterSpacing: -1,
+        Expanded(
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Text(
+                song.name,
+                style: const TextStyle(
+                  fontSize: 56,
+                  fontWeight: FontWeight.w800,
+                  color: _kWhite,
+                  fontFamily: 'Plus Jakarta Sans',
+                  height: 1.1,
+                  letterSpacing: -1,
+                ),
+                maxLines: 2,
+                overflow: TextOverflow.ellipsis,
+              ),
+              const SizedBox(height: 16),
+              Text(
+                song.album.isNotEmpty
+                    ? '${song.artistDisplay} • ${song.album}'
+                    : song.artistDisplay,
+                style: const TextStyle(
+                  fontSize: 32,
+                  fontWeight: FontWeight.w600,
+                  color: _kAmber,
+                  fontFamily: 'Plus Jakarta Sans',
+                ),
+                maxLines: 1,
+                overflow: TextOverflow.ellipsis,
+              ),
+            ],
           ),
-          maxLines: 2,
-          overflow: TextOverflow.ellipsis,
         ),
-        const SizedBox(height: 16),
-        Text(
-          song.album.isNotEmpty
-              ? '${song.artistDisplay} • ${song.album}'
-              : song.artistDisplay,
-          style: const TextStyle(
-            fontSize: 32,
-            fontWeight: FontWeight.w600,
+        const SizedBox(width: 16),
+        GestureDetector(
+          onTap: () =>
+              ref.read(favoriteNotifierProvider.notifier).toggle(song),
+          child: Icon(
+            isFav ? Icons.favorite : Icons.favorite_border,
             color: _kAmber,
-            fontFamily: 'Plus Jakarta Sans',
+            size: 40,
           ),
-          maxLines: 1,
-          overflow: TextOverflow.ellipsis,
         ),
       ],
     );
@@ -408,14 +433,19 @@ class _TvFullPlayerScreenState extends ConsumerState<TvFullPlayerScreen> {
 
     return Row(
       children: [
-        // Shuffle
+        // Shuffle / play-mode cycle
         _TvControlButton(
-          icon: Icons.shuffle,
+          icon: switch (state.playMode) {
+            PlayMode.shuffle => Icons.shuffle,
+            PlayMode.repeatAll => Icons.repeat,
+            PlayMode.repeatOne => Icons.repeat_one,
+            PlayMode.sequence => Icons.shuffle,
+          },
           size: 40,
-          color: state.playMode == PlayMode.shuffle
+          color: state.playMode != PlayMode.sequence
               ? _kWhite
               : _kWhite.withValues(alpha: 0.5),
-          onTap: () => notifier.setPlayMode(PlayMode.shuffle),
+          onTap: () => _cyclePlayMode(state.playMode),
         ),
         const SizedBox(width: 40),
         // Previous
@@ -496,6 +526,55 @@ class _TvFullPlayerScreenState extends ConsumerState<TvFullPlayerScreen> {
             inactiveLineColor: const Color(0xFF1B1C19).withValues(alpha: 0.3),
           ),
         ),
+      ),
+    );
+  }
+}
+
+// ─── Inline lyric line (one highlighted line between cover/info and progress) ─
+
+class _TvInlineLyricLine extends ConsumerWidget {
+  const _TvInlineLyricLine({required this.song});
+  final Song song;
+
+  @override
+  Widget build(BuildContext context, WidgetRef ref) {
+    final lyricKey = (song.id, song.source.param);
+
+    ref.listen<AsyncValue<AppPlayerState>>(playerNotifierProvider, (_, next) {
+      next.whenData((s) {
+        ref
+            .read(lyricNotifierProvider(lyricKey).notifier)
+            .syncPosition(s.position);
+      });
+    });
+
+    final lyricAsync = ref.watch(lyricNotifierProvider(lyricKey));
+
+    return SizedBox(
+      height: 36,
+      child: lyricAsync.when(
+        loading: () => const SizedBox.shrink(),
+        error: (_, __) => const SizedBox.shrink(),
+        data: (lyricState) {
+          if (lyricState.lines.isEmpty) return const SizedBox.shrink();
+          final line = lyricState.lines[lyricState.currentIndex];
+          return AnimatedSwitcher(
+            duration: const Duration(milliseconds: 400),
+            child: Text(
+              line.original,
+              key: ValueKey(lyricState.currentIndex),
+              maxLines: 1,
+              overflow: TextOverflow.ellipsis,
+              style: TextStyle(
+                fontSize: 28,
+                color: _kAmber.withValues(alpha: 0.9),
+                fontWeight: FontWeight.w500,
+                fontFamily: 'Plus Jakarta Sans',
+              ),
+            ),
+          );
+        },
       ),
     );
   }

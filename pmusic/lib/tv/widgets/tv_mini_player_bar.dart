@@ -1,9 +1,8 @@
-import 'package:cached_network_image/cached_network_image.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
-import '../../core/api/music_api_client.dart';
 import '../../core/models/enums.dart';
+import '../../mobile/widgets/song_cover_image.dart';
 import '../../features/player/player_notifier.dart';
 import '../screens/tv_full_player_screen.dart';
 
@@ -52,9 +51,6 @@ class TvMiniPlayerBar extends ConsumerWidget {
                 .clamp(0.0, 1.0)
                 .toDouble()
             : 0.0;
-        final picUrl =
-            MusicApiClient.buildPicUrl(song.source.param, song.picId);
-
         return Container(
           height: 96,
           margin: const EdgeInsets.fromLTRB(288, 0, 32, 32),
@@ -74,7 +70,7 @@ class TvMiniPlayerBar extends ConsumerWidget {
             children: [
               // ── Left: Track info ─────────────────────────────────────────
               Expanded(
-                child: _buildTrackInfo(picUrl, song.name,
+              child: _buildTrackInfo(song.source.param, song.picId, song.name,
                     song.artistDisplay),
               ),
 
@@ -96,26 +92,10 @@ class TvMiniPlayerBar extends ConsumerWidget {
 
   // ── Track info ─────────────────────────────────────────────────────────────
 
-  Widget _buildTrackInfo(String picUrl, String title, String artist) {
+  Widget _buildTrackInfo(String source, String picId, String title, String artist) {
     return Row(
       children: [
-        ClipRRect(
-          borderRadius: BorderRadius.circular(12),
-          child: SizedBox(
-            width: 56,
-            height: 56,
-            child: picUrl.isNotEmpty
-                ? CachedNetworkImage(
-                    imageUrl: picUrl,
-                    fit: BoxFit.cover,
-                    placeholder: (_, _) =>
-                        _artPlaceholder(),
-                    errorWidget: (_, _, _) =>
-                        _artPlaceholder(),
-                  )
-                : _artPlaceholder(),
-          ),
-        ),
+        SongCover(source: source, picId: picId, width: 56, height: 56, borderRadius: 12),
         const SizedBox(width: 16),
         Expanded(
           child: Column(
@@ -152,12 +132,6 @@ class TvMiniPlayerBar extends ConsumerWidget {
       ],
     );
   }
-
-  static Widget _artPlaceholder() => Container(
-        color: const Color(0xFFE2A05B).withValues(alpha: 0.15),
-        child: const Icon(Icons.music_note,
-            color: Color(0xFFE2A05B), size: 24),
-      );
 
   // ── Controls + progress ────────────────────────────────────────────────────
 

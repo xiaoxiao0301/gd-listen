@@ -1,15 +1,14 @@
 import 'dart:math';
 
-import 'package:cached_network_image/cached_network_image.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
-import '../../core/api/music_api_client.dart';
 import '../../core/models/song.dart';
 import '../../features/favorite/favorite_notifier.dart';
 import '../../features/player/player_notifier.dart';
 import '../widgets/mini_player.dart';
 import '../widgets/song_action_sheet.dart';
+import '../widgets/song_cover_image.dart';
 
 // ─── Design tokens (favorites/code.html) ─────────────────────────────────────
 
@@ -385,13 +384,6 @@ class _HeroSection extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    // Use the first 4 songs for the mosaic cover art
-    final coverUrl = songs.isNotEmpty
-        ? MusicApiClient.buildPicUrl(
-            songs.first.source.param, songs.first.picId,
-            size: 400)
-        : '';
-
     return Padding(
       padding: const EdgeInsets.fromLTRB(24, 32, 24, 0),
       child: Column(
@@ -406,32 +398,16 @@ class _HeroSection extends StatelessWidget {
                 clipBehavior: Clip.none,
                 children: [
                   // Main cover
-                  ClipRRect(
-                    borderRadius: BorderRadius.circular(12),
-                    child: Container(
-                      width: 192,
-                      height: 192,
-                      decoration: const BoxDecoration(
-                        boxShadow: [
-                          BoxShadow(
-                            color: Color(0x1F865213),
-                            blurRadius: 32,
-                            offset: Offset(0, 8),
-                          ),
-                        ],
-                      ),
-                      child: coverUrl.isNotEmpty
-                          ? CachedNetworkImage(
-                              imageUrl: coverUrl,
-                              fit: BoxFit.cover,
-                              placeholder: (_, _) =>
-                                  const _CoverPlaceholder(),
-                              errorWidget: (_, _, _) =>
-                                  const _CoverPlaceholder(),
-                            )
-                          : const _CoverPlaceholder(),
-                    ),
-                  ),
+                  songs.isNotEmpty
+                      ? SongCover(
+                          source: songs.first.source.param,
+                          picId: songs.first.picId,
+                          size: 400,
+                          width: 192,
+                          height: 192,
+                          borderRadius: 12,
+                        )
+                      : const _CoverPlaceholder(),
                   // Heart badge overlay
                   Positioned(
                     bottom: 0,
@@ -584,10 +560,6 @@ class _FavoriteSongRowState extends State<_FavoriteSongRow> {
 
   @override
   Widget build(BuildContext context) {
-    final picUrl = MusicApiClient.buildPicUrl(
-        widget.song.source.param, widget.song.picId,
-        size: 200);
-
     return MouseRegion(
       onEnter: (_) => setState(() => _hovering = true),
       onExit: (_) => setState(() => _hovering = false),
@@ -603,21 +575,7 @@ class _FavoriteSongRowState extends State<_FavoriteSongRow> {
           child: Row(
             children: [
               // Album cover
-              ClipRRect(
-                borderRadius: BorderRadius.circular(8),
-                child: picUrl.isNotEmpty
-                    ? CachedNetworkImage(
-                        imageUrl: picUrl,
-                        width: 48,
-                        height: 48,
-                        fit: BoxFit.cover,
-                        placeholder: (_, _) =>
-                            const _SmallPlaceholder(),
-                        errorWidget: (_, _, _) =>
-                            const _SmallPlaceholder(),
-                      )
-                    : const _SmallPlaceholder(),
-              ),
+              SongCover(source: widget.song.source.param, picId: widget.song.picId, size: 200, width: 48, height: 48),
 
               const SizedBox(width: 16),
 
@@ -703,10 +661,6 @@ class _BatchSongRow extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final picUrl = MusicApiClient.buildPicUrl(
-        song.source.param, song.picId,
-        size: 200);
-
     return GestureDetector(
       onTap: onToggle,
       child: AnimatedContainer(
@@ -741,20 +695,7 @@ class _BatchSongRow extends StatelessWidget {
             ),
             const SizedBox(width: 12),
             // Album cover
-            ClipRRect(
-              borderRadius: BorderRadius.circular(8),
-              child: picUrl.isNotEmpty
-                  ? CachedNetworkImage(
-                      imageUrl: picUrl,
-                      width: 48,
-                      height: 48,
-                      fit: BoxFit.cover,
-                      placeholder: (_, _) => const _SmallPlaceholder(),
-                      errorWidget: (_, _, _) =>
-                          const _SmallPlaceholder(),
-                    )
-                  : const _SmallPlaceholder(),
-            ),
+            SongCover(source: song.source.param, picId: song.picId, size: 200, width: 48, height: 48),
             const SizedBox(width: 16),
             Expanded(
               child: Column(
@@ -900,21 +841,4 @@ class _BatchActionBar extends StatelessWidget {
       ),
     );
   }
-}
-
-class _SmallPlaceholder extends StatelessWidget {
-  const _SmallPlaceholder();
-
-  @override
-  Widget build(BuildContext context) => Container(
-        width: 48,
-        height: 48,
-        decoration: const BoxDecoration(
-          gradient: LinearGradient(
-            colors: [Color(0xFFD49A5A), Color(0xFFBF7340)],
-          ),
-        ),
-        child: const Icon(Icons.music_note,
-            color: Colors.white70, size: 22),
-      );
 }

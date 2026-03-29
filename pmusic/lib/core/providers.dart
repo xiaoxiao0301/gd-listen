@@ -58,3 +58,21 @@ final musicApiClientProvider = Provider<MusicApiClient>((ref) {
   final dio = ref.watch(dioProvider);
   return MusicApiClient(dio);
 });
+
+// ─── Cover-art URL resolver ──────────────────────────────────────────────────
+
+/// Resolves the actual CDN image URL for a given `(source, picId, size)` triple.
+///
+/// The GD Studio API `types=pic` endpoint returns JSON `{"url":"..."}` rather
+/// than image bytes, so we must resolve the URL before passing it to
+/// [CachedNetworkImage]. Results are kept alive for the app session to avoid
+/// redundant API calls.
+final picUrlProvider =
+    FutureProvider.family<String, (String, String, int)>((ref, args) async {
+  final (source, picId, size) = args;
+  if (picId.isEmpty) return '';
+  // Some sources return a full URL as pic_id — use it directly.
+  if (picId.startsWith('http')) return picId;
+  final api = ref.read(musicApiClientProvider);
+  return api.getPicUrl(source: source, picId: picId, size: size);
+});

@@ -1,15 +1,16 @@
 import 'dart:async';
 
-import 'package:cached_network_image/cached_network_image.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
-import '../../core/api/music_api_client.dart';
 import '../../core/models/song.dart';
+import '../../features/favorite/favorite_notifier.dart';
 import '../../features/history/history_notifier.dart';
 import '../../features/player/player_notifier.dart';
+import '../../features/playlist/playlist_notifier.dart';
 import '../../features/search/search_notifier.dart';
+import '../../mobile/widgets/song_cover_image.dart';
 import 'tv_play_history_screen.dart';
 
 // ─── Design tokens (TV: tv_home_discovery_updated_content) ───────────────────
@@ -68,9 +69,16 @@ class _TvHomeScreenState extends ConsumerState<TvHomeScreen> {
       return;
     }
     setState(() => _searchActive = true);
-    _debounce = Timer(const Duration(milliseconds: 600), () {
+    _debounce = Timer(const Duration(milliseconds: 500), () {
       ref.read(searchNotifierProvider.notifier).search(value);
     });
+  }
+
+  void _onSearchSubmitted(String value) {
+    _debounce?.cancel();
+    if (value.isEmpty) return;
+    setState(() => _searchActive = true);
+    ref.read(searchNotifierProvider.notifier).search(value);
   }
 
   void _onHistoryChipTap(String keyword) {
@@ -90,6 +98,7 @@ class _TvHomeScreenState extends ConsumerState<TvHomeScreen> {
             controller: _searchCtrl,
             focusNode: _searchFocus,
             onChanged: _onSearchChanged,
+            onSubmitted: _onSearchSubmitted,
           ),
           // ── Scrollable content ────────────────────────────────────────────
           Expanded(
@@ -110,11 +119,13 @@ class _TvSearchHeader extends StatelessWidget {
     required this.controller,
     required this.focusNode,
     required this.onChanged,
+    required this.onSubmitted,
   });
 
   final TextEditingController controller;
   final FocusNode focusNode;
   final ValueChanged<String> onChanged;
+  final ValueChanged<String> onSubmitted;
 
   @override
   Widget build(BuildContext context) {
@@ -133,56 +144,55 @@ class _TvSearchHeader extends StatelessWidget {
           // Search pill — max 400px wide (design: max-w-md)
           ConstrainedBox(
             constraints: const BoxConstraints(maxWidth: 400),
-            child: Focus(
-              onKeyEvent: (node, event) {
-                if (event is KeyDownEvent &&
-                    event.logicalKey == LogicalKeyboardKey.escape) {
-                  controller.clear();
-                  onChanged('');
-                  focusNode.unfocus();
-                }
-                return KeyEventResult.ignored;
+            child: TextField(
+              controller: controller,
+              focusNode: focusNode,
+              onChanged: onChanged,
+              onSubmitted: onSubmitted,
+              onTap: () {
+                // Intentionally empty — focus gain is detected via focusNode
+                // listener in _TvHomeScreenState._onFocusChanged().
               },
-              child: TextField(
-                controller: controller,
-                focusNode: focusNode,
-                onChanged: onChanged,
-                textInputAction: TextInputAction.search,
-                style: const TextStyle(
+              // Prevent Flutter from unfocusing (and auto-dismissing the
+              // soft keyboard) when the user taps a key on the TV floating
+              // keyboard overlay — the tap lands "outside" the TextField
+              // bounds and normally triggers an unfocus.
+              onTapOutside: (_) {},
+              textInputAction: TextInputAction.search,
+              style: const TextStyle(
+                fontSize: 15,
+                color: _kOnSurface,
+                height: 1.4,
+              ),
+              decoration: InputDecoration(
+                hintText: '搜索歌手、曲目、专辑…',
+                hintStyle: TextStyle(
+                  color: _kOnSurfaceVariant.withValues(alpha: 0.6),
                   fontSize: 15,
-                  color: _kOnSurface,
-                  height: 1.4,
                 ),
-                decoration: InputDecoration(
-                  hintText: '搜索歌手、曲目、专辑…',
-                  hintStyle: TextStyle(
-                    color: _kOnSurfaceVariant.withValues(alpha: 0.6),
-                    fontSize: 15,
-                  ),
-                  prefixIcon: const Icon(
-                    Icons.search,
-                    color: _kBrand,
-                    size: 22,
-                  ),
-                  filled: true,
-                  fillColor: _kSurfaceContainerLow,
-                  contentPadding: const EdgeInsets.symmetric(
-                    horizontal: 24,
-                    vertical: 16,
-                  ),
-                  enabledBorder: OutlineInputBorder(
-                    borderRadius: BorderRadius.circular(999),
-                    borderSide: BorderSide.none,
-                  ),
-                  focusedBorder: OutlineInputBorder(
-                    borderRadius: BorderRadius.circular(999),
-                    borderSide:
-                        const BorderSide(color: _kAmber, width: 2),
-                  ),
-                  border: OutlineInputBorder(
-                    borderRadius: BorderRadius.circular(999),
-                    borderSide: BorderSide.none,
-                  ),
+                prefixIcon: const Icon(
+                  Icons.search,
+                  color: _kBrand,
+                  size: 22,
+                ),
+                filled: true,
+                fillColor: _kSurfaceContainerLow,
+                contentPadding: const EdgeInsets.symmetric(
+                  horizontal: 24,
+                  vertical: 16,
+                ),
+                enabledBorder: OutlineInputBorder(
+                  borderRadius: BorderRadius.circular(999),
+                  borderSide: BorderSide.none,
+                ),
+                focusedBorder: OutlineInputBorder(
+                  borderRadius: BorderRadius.circular(999),
+                  borderSide:
+                      const BorderSide(color: _kAmber, width: 2),
+                ),
+                border: OutlineInputBorder(
+                  borderRadius: BorderRadius.circular(999),
+                  borderSide: BorderSide.none,
                 ),
               ),
             ),
@@ -436,6 +446,8 @@ class _RecentlyPlayedSection extends ConsumerWidget {
                             .read(playerNotifierProvider.notifier)
                             .playSong(songs[i]);
                       },
+                      onMore: () =>
+                          showTvSongActionDialog(context, ref, songs[i]),
                     );
                   },
                 ),
@@ -469,9 +481,11 @@ class _RecentlyPlayedCard extends StatefulWidget {
   const _RecentlyPlayedCard({
     required this.song,
     required this.onPlay,
+    required this.onMore,
   });
   final Song song;
   final VoidCallback onPlay;
+  final VoidCallback onMore;
 
   @override
   State<_RecentlyPlayedCard> createState() => _RecentlyPlayedCardState();
@@ -513,12 +527,6 @@ class _RecentlyPlayedCardState extends State<_RecentlyPlayedCard>
 
   @override
   Widget build(BuildContext context) {
-    final coverUrl = MusicApiClient.buildPicUrl(
-      widget.song.source.param,
-      widget.song.picId,
-      size: 400,
-    );
-
     return Focus(
       onFocusChange: _setFocus,
       child: GestureDetector(
@@ -570,25 +578,14 @@ class _RecentlyPlayedCardState extends State<_RecentlyPlayedCard>
                           // Cover image with scale animation on focus
                           ScaleTransition(
                             scale: _scale,
-                            child: CachedNetworkImage(
-                              imageUrl: coverUrl,
+                            child: SongCover(
+                              source: widget.song.source.param,
+                              picId: widget.song.picId,
+                              size: 400,
+                              width: 220,
+                              height: 220,
                               fit: BoxFit.cover,
-                              placeholder: (_, _) => Container(
-                                color: _kSurfaceContainerLow,
-                                child: const Icon(
-                                  Icons.music_note,
-                                  color: _kOutlineVariant,
-                                  size: 48,
-                                ),
-                              ),
-                              errorWidget: (_, _, _) => Container(
-                                color: _kSurfaceContainerLow,
-                                child: const Icon(
-                                  Icons.music_note,
-                                  color: _kOutlineVariant,
-                                  size: 48,
-                                ),
-                              ),
+                              borderRadius: 0,
                             ),
                           ),
                           // Focus overlay: gradient + play button
@@ -644,17 +641,31 @@ class _RecentlyPlayedCardState extends State<_RecentlyPlayedCard>
                   ),
                 ),
                 const SizedBox(height: 4),
-                // Artist • Album
-                Text(
-                  '${widget.song.artistDisplay} • ${widget.song.album}',
-                  maxLines: 1,
-                  overflow: TextOverflow.ellipsis,
-                  style: const TextStyle(
-                    fontSize: 14,
-                    fontWeight: FontWeight.w500,
-                    color: _kOnSurfaceVariant,
-                    height: 1.3,
-                  ),
+                // Artist • Album  +  more button
+                Row(
+                  children: [
+                    Expanded(
+                      child: Text(
+                        '${widget.song.artistDisplay} • ${widget.song.album}',
+                        maxLines: 1,
+                        overflow: TextOverflow.ellipsis,
+                        style: const TextStyle(
+                          fontSize: 14,
+                          fontWeight: FontWeight.w500,
+                          color: _kOnSurfaceVariant,
+                          height: 1.3,
+                        ),
+                      ),
+                    ),
+                    GestureDetector(
+                      onTap: widget.onMore,
+                      child: Icon(
+                        Icons.more_horiz,
+                        size: 18,
+                        color: _focused ? _kBrand : _kOnSurfaceVariant,
+                      ),
+                    ),
+                  ],
                 ),
               ],
             ),
@@ -686,6 +697,37 @@ class _SearchResultsBody extends ConsumerWidget {
         if (state.isLoading && state.results.isEmpty) {
           return const Center(
             child: CircularProgressIndicator(color: _kAmber),
+          );
+        }
+        if (state.errorMessage != null) {
+          return Center(
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                const Icon(Icons.error_outline,
+                    color: _kAmber, size: 40),
+                const SizedBox(height: 12),
+                Text(
+                  state.errorMessage!,
+                  style: const TextStyle(
+                      color: _kOnSurfaceVariant, fontSize: 16),
+                  textAlign: TextAlign.center,
+                ),
+                const SizedBox(height: 16),
+                _TvFocusButton(
+                  onTap: () => ref
+                      .read(searchNotifierProvider.notifier)
+                      .search(state.keyword),
+                  child: const Text(
+                    '重试',
+                    style: TextStyle(
+                        fontSize: 15,
+                        fontWeight: FontWeight.w700,
+                        color: _kBrand),
+                  ),
+                ),
+              ],
+            ),
           );
         }
         if (state.results.isEmpty) {
@@ -728,6 +770,8 @@ class _SearchResultsBody extends ConsumerWidget {
               onPlay: () => ref
                   .read(playerNotifierProvider.notifier)
                   .playSong(song),
+              onMore: () =>
+                  showTvSongActionDialog(context, ref, song),
             );
           },
         );
@@ -738,9 +782,14 @@ class _SearchResultsBody extends ConsumerWidget {
 
 /// TV-optimised song row for search results.
 class _TvSongRow extends StatefulWidget {
-  const _TvSongRow({required this.song, required this.onPlay});
+  const _TvSongRow({
+    required this.song,
+    required this.onPlay,
+    required this.onMore,
+  });
   final Song song;
   final VoidCallback onPlay;
+  final VoidCallback onMore;
 
   @override
   State<_TvSongRow> createState() => _TvSongRowState();
@@ -751,11 +800,6 @@ class _TvSongRowState extends State<_TvSongRow> {
 
   @override
   Widget build(BuildContext context) {
-    final coverUrl = MusicApiClient.buildPicUrl(
-      widget.song.source.param,
-      widget.song.picId,
-      size: 200,
-    );
     return Focus(
       onFocusChange: (v) => setState(() => _focused = v),
       child: GestureDetector(
@@ -776,28 +820,12 @@ class _TvSongRowState extends State<_TvSongRow> {
           child: Row(
             children: [
               // Cover
-              ClipRRect(
-                borderRadius: BorderRadius.circular(8),
-                child: CachedNetworkImage(
-                  imageUrl: coverUrl,
-                  width: 56,
-                  height: 56,
-                  fit: BoxFit.cover,
-                  placeholder: (_, _) => Container(
-                    width: 56,
-                    height: 56,
-                    color: _kSurfaceContainerLow,
-                    child: const Icon(Icons.music_note,
-                        color: _kOutlineVariant, size: 24),
-                  ),
-                  errorWidget: (_, _, _) => Container(
-                    width: 56,
-                    height: 56,
-                    color: _kSurfaceContainerLow,
-                    child: const Icon(Icons.music_note,
-                        color: _kOutlineVariant, size: 24),
-                  ),
-                ),
+              SongCover(
+                source: widget.song.source.param,
+                picId: widget.song.picId,
+                size: 200,
+                width: 56,
+                height: 56,
               ),
               const SizedBox(width: 16),
               // Song info
@@ -835,12 +863,168 @@ class _TvSongRowState extends State<_TvSongRow> {
                 child: const Icon(Icons.play_arrow_rounded,
                     color: _kBrand, size: 32),
               ),
+              const SizedBox(width: 8),
+              GestureDetector(
+                onTap: widget.onMore,
+                child: Icon(
+                  Icons.more_vert,
+                  color: _focused ? _kBrand : _kOnSurfaceVariant,
+                  size: 24,
+                ),
+              ),
             ],
           ),
         ),
       ),
     );
   }
+}
+
+// ─── TV song action dialog (shared) ─────────────────────────────────────────
+
+void showTvSongActionDialog(
+    BuildContext context, WidgetRef ref, Song song) {
+  showDialog<void>(
+    context: context,
+    builder: (ctx) => AlertDialog(
+      backgroundColor: _kSurfaceContainerLow,
+      shape:
+          RoundedRectangleBorder(borderRadius: BorderRadius.circular(24)),
+      title: Text(
+        song.name,
+        style: const TextStyle(
+          fontFamily: 'Plus Jakarta Sans',
+          fontSize: 18,
+          fontWeight: FontWeight.w700,
+          color: _kOnSurface,
+        ),
+        maxLines: 1,
+        overflow: TextOverflow.ellipsis,
+      ),
+      content: Consumer(
+        builder: (ctx2, ref2, _) {
+          final isFav = ref2
+                  .watch(favoriteNotifierProvider)
+                  .valueOrNull
+                  ?.isFavorite(song) ??
+              false;
+          return Column(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              ListTile(
+                shape: RoundedRectangleBorder(
+                    borderRadius: BorderRadius.circular(12)),
+                leading:
+                    const Icon(Icons.play_arrow, color: _kBrand),
+                title: const Text('立即播放',
+                    style: TextStyle(
+                        fontSize: 16, color: _kOnSurface)),
+                onTap: () {
+                  Navigator.pop(ctx);
+                  ref2
+                      .read(playerNotifierProvider.notifier)
+                      .playSong(song);
+                },
+              ),
+              ListTile(
+                shape: RoundedRectangleBorder(
+                    borderRadius: BorderRadius.circular(12)),
+                leading:
+                    const Icon(Icons.add_to_queue, color: _kBrand),
+                title: const Text('添加到队列末尾',
+                    style: TextStyle(
+                        fontSize: 16, color: _kOnSurface)),
+                onTap: () {
+                  Navigator.pop(ctx);
+                  ref2
+                      .read(playerNotifierProvider.notifier)
+                      .addToQueue(song);
+                },
+              ),
+              ListTile(
+                shape: RoundedRectangleBorder(
+                    borderRadius: BorderRadius.circular(12)),
+                leading: Icon(
+                    isFav
+                        ? Icons.favorite
+                        : Icons.favorite_border,
+                    color: _kBrand),
+                title: Text(isFav ? '取消收藏' : '收藏',
+                    style: const TextStyle(
+                        fontSize: 16, color: _kOnSurface)),
+                onTap: () {
+                  Navigator.pop(ctx);
+                  ref2
+                      .read(favoriteNotifierProvider.notifier)
+                      .toggle(song);
+                },
+              ),
+              ListTile(
+                shape: RoundedRectangleBorder(
+                    borderRadius: BorderRadius.circular(12)),
+                leading:
+                    const Icon(Icons.playlist_add, color: _kBrand),
+                title: const Text('加入歌单',
+                    style: TextStyle(
+                        fontSize: 16, color: _kOnSurface)),
+                onTap: () {
+                  Navigator.pop(ctx);
+                  _showAddToPlaylistDialog(context, ref2, song);
+                },
+              ),
+            ],
+          );
+        },
+      ),
+      actions: [
+        TextButton(
+          onPressed: () => Navigator.pop(ctx),
+          child: const Text('关闭',
+              style: TextStyle(
+                  color: _kOnSurfaceVariant, fontSize: 16)),
+        ),
+      ],
+    ),
+  );
+}
+
+void _showAddToPlaylistDialog(
+    BuildContext context, WidgetRef ref, Song song) {
+  final playlists =
+      ref.read(playlistNotifierProvider).valueOrNull?.playlists ?? [];
+  if (playlists.isEmpty) return;
+  showDialog<void>(
+    context: context,
+    builder: (ctx) => AlertDialog(
+      backgroundColor: _kSurfaceContainerLow,
+      shape:
+          RoundedRectangleBorder(borderRadius: BorderRadius.circular(24)),
+      title: const Text('加入歌单',
+          style: TextStyle(
+              fontFamily: 'Plus Jakarta Sans',
+              fontSize: 18,
+              fontWeight: FontWeight.w700,
+              color: _kOnSurface)),
+      content: SizedBox(
+        width: 400,
+        child: ListView.builder(
+          shrinkWrap: true,
+          itemCount: playlists.length,
+          itemBuilder: (_, i) => ListTile(
+            title: Text(playlists[i].name,
+                style: const TextStyle(
+                    fontSize: 16, color: _kOnSurface)),
+            onTap: () {
+              Navigator.pop(ctx);
+              ref
+                  .read(playlistNotifierProvider.notifier)
+                  .addSong(playlists[i].id, song);
+            },
+          ),
+        ),
+      ),
+    ),
+  );
 }
 
 // ─── Shared focus-aware button ────────────────────────────────────────────────

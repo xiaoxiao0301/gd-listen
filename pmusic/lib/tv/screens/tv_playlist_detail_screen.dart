@@ -1,14 +1,14 @@
 import 'dart:math';
 
-import 'package:cached_network_image/cached_network_image.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
-import '../../core/api/music_api_client.dart';
 import '../../core/models/song.dart';
+import '../../features/favorite/favorite_notifier.dart';
 import '../../features/player/player_notifier.dart';
 import '../../features/playlist/playlist_notifier.dart';
+import '../../mobile/widgets/song_cover_image.dart';
 import '../widgets/tv_mini_player_bar.dart';
 
 // ─── Design tokens (tv_playlist_detail/code.html) ────────────────────────────
@@ -130,7 +130,23 @@ class _TvPlaylistDetailScreenState
                         .read(playerNotifierProvider.notifier)
                         .setQueue(shuffled);
                   },
-            onFavorite: () {},
+            onFavorite: songs.isEmpty
+                ? null
+                : () {
+                    final favNotifier =
+                        ref.read(favoriteNotifierProvider.notifier);
+                    final favState =
+                        ref.read(favoriteNotifierProvider).valueOrNull;
+                    for (final s in songs) {
+                      if (favState?.isFavorite(s) != true) {
+                        favNotifier.toggle(s);
+                      }
+                    }
+                    ScaffoldMessenger.of(context).showSnackBar(
+                      const SnackBar(
+                          content: Text('已全部收藏到我喜欢')),
+                    );
+                  },
           ),
 
           // ── Song list ──────────────────────────────────────────────────
@@ -275,7 +291,7 @@ class _TvSidebar extends StatelessWidget {
           ),
           _SidebarNavItem(
             icon: Icons.favorite_border,
-            label: 'Favorites',
+            label: '收藏全部',
             isActive: false,
             onTap: () {},
           ),
@@ -377,7 +393,7 @@ class _HeroHeader extends StatelessWidget {
   final String description;
   final VoidCallback? onPlayAll;
   final VoidCallback? onShuffle;
-  final VoidCallback onFavorite;
+  final VoidCallback? onFavorite;
 
   static const _gradients = [
     [Color(0xFFBF7340), Color(0xFF8B4B1A)],
@@ -400,18 +416,16 @@ class _HeroHeader extends StatelessWidget {
             padding: EdgeInsets.zero,
             children: List.generate(4, (i) {
               final song = i < songs.length ? songs[i] : null;
-              final picUrl = song != null
-                  ? MusicApiClient.buildPicUrl(
-                      song.source.param, song.picId,
-                      size: 400)
-                  : '';
               final grads = _gradients[i % _gradients.length];
-              if (picUrl.isNotEmpty) {
-                return CachedNetworkImage(
-                  imageUrl: picUrl,
+              if (song != null) {
+                return SongCover(
+                  source: song.source.param,
+                  picId: song.picId,
+                  size: 400,
                   fit: BoxFit.cover,
-                  placeholder: (_, _) => _GradCell(grads: grads),
-                  errorWidget: (_, _, _) => _GradCell(grads: grads),
+                  width: 300,
+                  height: 300,
+                  borderRadius: 0,
                 );
               }
               return _GradCell(grads: grads);
@@ -627,7 +641,7 @@ class _HeroIconButton extends StatefulWidget {
   const _HeroIconButton({required this.icon, required this.onTap});
 
   final IconData icon;
-  final VoidCallback onTap;
+  final VoidCallback? onTap;
 
   @override
   State<_HeroIconButton> createState() => _HeroIconButtonState();
@@ -686,9 +700,6 @@ class _TvSongRowState extends State<_TvSongRow> {
 
   @override
   Widget build(BuildContext context) {
-    final picUrl = MusicApiClient.buildPicUrl(
-        widget.song.source.param, widget.song.picId,
-        size: 200);
     final highlighted = _focused || widget.isPlaying;
 
     return Focus(
@@ -721,20 +732,12 @@ class _TvSongRowState extends State<_TvSongRow> {
           child: Row(
             children: [
               // Album cover
-              ClipRRect(
-                borderRadius: BorderRadius.circular(8),
-                child: picUrl.isNotEmpty
-                    ? CachedNetworkImage(
-                        imageUrl: picUrl,
-                        width: 48,
-                        height: 48,
-                        fit: BoxFit.cover,
-                        placeholder: (_, _) =>
-                            const _TvCoverPlaceholder(),
-                        errorWidget: (_, _, _) =>
-                            const _TvCoverPlaceholder(),
-                      )
-                    : const _TvCoverPlaceholder(),
+              SongCover(
+                source: widget.song.source.param,
+                picId: widget.song.picId,
+                size: 200,
+                width: 48,
+                height: 48,
               ),
 
               const SizedBox(width: 24),
@@ -818,24 +821,4 @@ class _TvSongRowState extends State<_TvSongRow> {
       ),
     );
   }
-}
-
-class _TvCoverPlaceholder extends StatelessWidget {
-  const _TvCoverPlaceholder();
-
-  @override
-  Widget build(BuildContext context) => Container(
-        width: 48,
-        height: 48,
-        decoration: BoxDecoration(
-          gradient: const LinearGradient(
-            colors: [Color(0xFFD49A5A), Color(0xFFBF7340)],
-            begin: Alignment.topLeft,
-            end: Alignment.bottomRight,
-          ),
-          borderRadius: BorderRadius.circular(8),
-        ),
-        child: const Icon(Icons.music_note,
-            color: Colors.white70, size: 22),
-      );
 }

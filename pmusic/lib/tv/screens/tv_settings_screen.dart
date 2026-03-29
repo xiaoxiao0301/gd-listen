@@ -205,40 +205,15 @@ class _TvSettingsScreenState extends ConsumerState<TvSettingsScreen> {
                 color: _kSurface.withValues(alpha: 0.9),
                 child: Row(
                   children: [
-                    Expanded(
-                      child: const Text(
-                        '设置',
-                        style: TextStyle(
-                          fontFamily: 'Plus Jakarta Sans',
-                          fontWeight: FontWeight.w900,
-                          fontSize: 30,
-                          color: _kOnSurface,
-                        ),
+                    const Text(
+                      '设置',
+                      style: TextStyle(
+                        fontFamily: 'Plus Jakarta Sans',
+                        fontWeight: FontWeight.w900,
+                        fontSize: 30,
+                        color: _kOnSurface,
                       ),
                     ),
-                    // Decorative search bar
-                    Container(
-                      width: 256,
-                      height: 40,
-                      padding: const EdgeInsets.symmetric(horizontal: 16),
-                      decoration: BoxDecoration(
-                        color: _kSurfaceLow,
-                        borderRadius: BorderRadius.circular(999),
-                      ),
-                      child: Row(
-                        children: const [
-                          Icon(Icons.search, color: _kOutline, size: 20),
-                          SizedBox(width: 8),
-                          Text('搜索设置...',
-                              style: TextStyle(
-                                  color: _kOutline, fontSize: 14)),
-                        ],
-                      ),
-                    ),
-                    const SizedBox(width: 24),
-                    const Icon(Icons.cast, color: _kPrimary, size: 24),
-                    const SizedBox(width: 16),
-                    const Icon(Icons.account_circle, color: _kPrimary, size: 24),
                   ],
                 ),
               ),

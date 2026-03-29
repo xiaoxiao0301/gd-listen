@@ -1,10 +1,9 @@
-import 'package:cached_network_image/cached_network_image.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
-import '../../core/api/music_api_client.dart';
 import '../../core/models/song.dart';
 import '../../features/player/player_notifier.dart';
+import 'song_cover_image.dart';
 
 // ─── Design tokens ────────────────────────────────────────────────────────────
 
@@ -341,9 +340,6 @@ class _ActiveQueueRow extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final picUrl =
-        MusicApiClient.buildPicUrl(song.source.param, song.picId);
-
     return Padding(
       padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 2),
       child: Stack(
@@ -386,7 +382,7 @@ class _ActiveQueueRow extends StatelessWidget {
                 Icon(Icons.drag_handle,
                     color: _kOutlineVariant, size: 20),
                 const SizedBox(width: 12),
-                _AlbumThumb(url: picUrl, size: 44),
+                _AlbumThumb(song: song, size: 44),
                 const SizedBox(width: 16),
                 Expanded(
                   child: Column(
@@ -459,9 +455,6 @@ class _QueueItemRowState extends State<_QueueItemRow> {
 
   @override
   Widget build(BuildContext context) {
-    final picUrl = MusicApiClient.buildPicUrl(
-        widget.song.source.param, widget.song.picId);
-
     return MouseRegion(
       onEnter: (_) => setState(() => _hovering = true),
       onExit: (_) => setState(() => _hovering = false),
@@ -488,7 +481,7 @@ class _QueueItemRowState extends State<_QueueItemRow> {
                 ),
               ),
               const SizedBox(width: 12),
-              _AlbumThumb(url: picUrl, size: 44),
+              _AlbumThumb(song: widget.song, size: 44),
               const SizedBox(width: 16),
               Expanded(
                 child: Column(
@@ -537,34 +530,19 @@ class _QueueItemRowState extends State<_QueueItemRow> {
 // ─── Album thumbnail ──────────────────────────────────────────────────────────
 
 class _AlbumThumb extends StatelessWidget {
-  const _AlbumThumb({required this.url, required this.size});
-  final String url;
+  const _AlbumThumb({required this.song, required this.size});
+  final Song song;
   final double size;
 
   @override
   Widget build(BuildContext context) {
-    return ClipRRect(
-      borderRadius: BorderRadius.circular(8),
-      child: SizedBox(
-        width: size,
-        height: size,
-        child: url.isNotEmpty
-            ? CachedNetworkImage(
-                imageUrl: url,
-                fit: BoxFit.cover,
-                placeholder: (_, p) => _placeholder(),
-                errorWidget: (_, e, _) => _placeholder(),
-              )
-            : _placeholder(),
-      ),
+    return SongCover(
+      source: song.source.param,
+      picId: song.picId,
+      width: size,
+      height: size,
     );
   }
-
-  Widget _placeholder() => Container(
-        color: const Color(0xFFE2A05B).withValues(alpha: 0.15),
-        child: const Icon(Icons.music_note,
-            color: Color(0xFFE2A05B), size: 18),
-      );
 }
 
 // ─── Dashed line ──────────────────────────────────────────────────────────────

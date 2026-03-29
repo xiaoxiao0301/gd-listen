@@ -1,8 +1,7 @@
-import 'package:cached_network_image/cached_network_image.dart';
 import 'package:flutter/material.dart';
 
-import '../../core/api/music_api_client.dart';
 import '../../core/models/song.dart';
+import 'song_cover_image.dart';
 
 // ─── Design tokens (mirrored from design system) ─────────────────────────────
 
@@ -32,8 +31,6 @@ class SongListItem extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final picUrl = MusicApiClient.buildPicUrl(song.source.param, song.picId);
-
     return GestureDetector(
       onTap: onTap,
       child: AnimatedContainer(
@@ -46,18 +43,11 @@ class SongListItem extends StatelessWidget {
         child: Row(
           children: [
             // ── Album cover ────────────────────────────────────────────────
-            ClipRRect(
-              borderRadius: BorderRadius.circular(8),
-              child: picUrl.isNotEmpty
-                  ? CachedNetworkImage(
-                      imageUrl: picUrl,
-                      width: 48,
-                      height: 48,
-                      fit: BoxFit.cover,
-                      placeholder: (_, _) => _CoverPlaceholder(),
-                      errorWidget: (_, _, _) => _CoverPlaceholder(),
-                    )
-                  : _CoverPlaceholder(),
+            SongCover(
+              source: song.source.param,
+              picId: song.picId,
+              width: 48,
+              height: 48,
             ),
             const SizedBox(width: 16),
 
@@ -126,18 +116,6 @@ class SongListItem extends StatelessWidget {
           ],
         ),
       ),
-    );
-  }
-}
-
-class _CoverPlaceholder extends StatelessWidget {
-  @override
-  Widget build(BuildContext context) {
-    return Container(
-      width: 48,
-      height: 48,
-      color: _kPrimary.withValues(alpha: 0.15),
-      child: const Icon(Icons.music_note, color: _kPrimary, size: 24),
     );
   }
 }
