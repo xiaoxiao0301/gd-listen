@@ -153,9 +153,9 @@ class _FullPlayerScreenState extends ConsumerState<FullPlayerScreen>
                             _buildSongInfo(song, isFav),
                             const SizedBox(height: 32),
                             _buildProgressBar(state, progress),
-                            const SizedBox(height: 40),
+                            const SizedBox(height: 32),
                             _buildControls(state),
-                            const SizedBox(height: 48),
+                            const SizedBox(height: 32),
                             _buildLyricsPreview(context, song),
                             const SizedBox(height: 24),
                           ],
@@ -181,7 +181,7 @@ class _FullPlayerScreenState extends ConsumerState<FullPlayerScreen>
         children: [
           GestureDetector(
             onTap: () => Navigator.of(context).pop(),
-            child: const Icon(Icons.arrow_back, color: _kWhite90, size: 24),
+            child: const Icon(Icons.keyboard_arrow_down, color: _kWhite90, size: 28),
           ),
           const Expanded(
             child: Column(
@@ -198,7 +198,7 @@ class _FullPlayerScreenState extends ConsumerState<FullPlayerScreen>
                 ),
                 SizedBox(height: 2),
                 Text(
-                  'The Analog Soul',
+                  'AmberMusic',
                   style: TextStyle(
                     fontSize: 14,
                     fontWeight: FontWeight.w700,

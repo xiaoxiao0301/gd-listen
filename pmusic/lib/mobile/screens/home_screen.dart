@@ -1,5 +1,3 @@
-import 'dart:async';
-
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
@@ -42,37 +40,34 @@ class HomeScreen extends ConsumerStatefulWidget {
 class _HomeScreenState extends ConsumerState<HomeScreen> {
   final _searchCtrl = TextEditingController();
   final _searchFocus = FocusNode();
-  Timer? _debounce;
   bool _searchActive = false;
 
   @override
   void dispose() {
     _searchCtrl.dispose();
     _searchFocus.dispose();
-    _debounce?.cancel();
     super.dispose();
   }
 
   // ── Search interaction ────────────────────────────────────────────────────
 
+  // Called on every keystroke — used only to clear when field becomes empty.
+  // We do NOT trigger a search here so that Chinese IME composing strokes
+  // don't fire a request.
   void _onSearchChanged(String value) {
-    _debounce?.cancel();
     if (value.trim().isEmpty) {
       ref.read(searchNotifierProvider.notifier).clearSearch();
       setState(() => _searchActive = false);
-      return;
     }
-    setState(() => _searchActive = true);
-    _debounce = Timer(const Duration(milliseconds: 500), () {
-      ref.read(searchNotifierProvider.notifier).search(value.trim());
-    });
   }
 
+  // Only triggered when the user presses the keyboard search/done button OR
+  // explicitly taps the search icon — this is when we actually search.
   void _onSearchSubmitted(String value) {
-    _debounce?.cancel();
-    if (value.trim().isEmpty) return;
+    final trimmed = value.trim();
+    if (trimmed.isEmpty) return;
     setState(() => _searchActive = true);
-    ref.read(searchNotifierProvider.notifier).search(value.trim());
+    ref.read(searchNotifierProvider.notifier).search(trimmed);
   }
 
   void _clearSearch() {
@@ -112,12 +107,9 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
             elevation: 0,
             scrolledUnderElevation: 0,
             leadingWidth: 56,
-            leading: Padding(
-              padding: const EdgeInsets.only(left: 16),
-              child: Icon(Icons.arrow_back, color: _kBrand, size: 24),
-            ),
+            automaticallyImplyLeading: false,
             title: Text(
-              'The Analog Soul',
+              'AmberMusic',
               style: TextStyle(
                 color: _kBrand,
                 fontSize: 20,
@@ -126,12 +118,7 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
                 letterSpacing: -0.5,
               ),
             ),
-            actions: [
-              Padding(
-                padding: const EdgeInsets.only(right: 16),
-                child: Icon(Icons.more_vert, color: _kBrand, size: 24),
-              ),
-            ],
+            actions: const [],
           ),
 
           // ── Search bar ──────────────────────────────────────────────────
@@ -146,6 +133,7 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
                   focusNode: _searchFocus,
                   onChanged: _onSearchChanged,
                   onSubmitted: _onSearchSubmitted,
+                  textInputAction: TextInputAction.search,
                   style: const TextStyle(
                     color: _kOnSurface,
                     fontSize: 16,
@@ -158,7 +146,10 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
                     ),
                     filled: true,
                     fillColor: _kSurfaceContainerLowest,
-                    prefixIcon: const Icon(Icons.search, color: _kBrand),
+                    prefixIcon: GestureDetector(
+                      onTap: () => _onSearchSubmitted(_searchCtrl.text),
+                      child: const Icon(Icons.search, color: _kBrand),
+                    ),
                     suffixIcon: _searchActive
                         ? GestureDetector(
                             onTap: _clearSearch,

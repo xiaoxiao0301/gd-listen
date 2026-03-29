@@ -87,8 +87,9 @@ class _MobileAppShellState extends ConsumerState<MobileAppShell> {
         fit: StackFit.expand,
         children: [
           IndexedStack(index: _currentIndex, children: _pages),
+          // Mini player sits on top of the full nav bar (including safe area).
           Positioned(
-            bottom: kBottomNavigationBarHeight + 8,
+            bottom: kBottomNavigationBarHeight + MediaQuery.of(context).padding.bottom,
             left: 0,
             right: 0,
             child: MiniPlayer(

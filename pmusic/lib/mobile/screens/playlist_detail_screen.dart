@@ -134,20 +134,11 @@ class _PlaylistDetailScreenState
                             child: const Text('取消',
                                 style: TextStyle(color: _kPrimary, fontWeight: FontWeight.w600)),
                           )
-                        : Row(
-                            mainAxisSize: MainAxisSize.min,
-                            children: [
-                              TextButton(
-                                onPressed: songs.isEmpty ? null : _enterBatch,
-                                child: const Text('批量选择',
-                                    style: TextStyle(
-                                        color: _kPrimary, fontSize: 13, fontWeight: FontWeight.w600)),
-                              ),
-                              IconButton(
-                                icon: const Icon(Icons.more_vert, color: _kPrimary),
-                                onPressed: () {},
-                              ),
-                            ],
+                        : TextButton(
+                            onPressed: songs.isEmpty ? null : _enterBatch,
+                            child: const Text('批量选择',
+                                style: TextStyle(
+                                    color: _kPrimary, fontSize: 13, fontWeight: FontWeight.w600)),
                           ),
                   ],
                   bottom: PreferredSize(
@@ -164,10 +155,9 @@ class _PlaylistDetailScreenState
               child: _HeroMosaic(songs: songs, playlistName: widget.playlistName),
             ),
 
-            // ── Sticky action row ─────────────────────────────────────────
-            SliverPersistentHeader(
-              pinned: true,
-              delegate: _ActionRowDelegate(
+            // ── Action row ────────────────────────────────────────────────
+            SliverToBoxAdapter(
+              child: _ActionRow(
                 onPlayAll: songs.isEmpty
                     ? null
                     : () => ref
@@ -538,23 +528,16 @@ class _GradCell extends StatelessWidget {
       );
 }
 
-// ─── Sticky Action Row delegate ───────────────────────────────────────────────
+// ─── Action Row ───────────────────────────────────────────────────────────────
 
-class _ActionRowDelegate extends SliverPersistentHeaderDelegate {
-  const _ActionRowDelegate({this.onPlayAll, this.onShuffle});
+class _ActionRow extends StatelessWidget {
+  const _ActionRow({this.onPlayAll, this.onShuffle});
 
   final VoidCallback? onPlayAll;
   final VoidCallback? onShuffle;
 
   @override
-  double get minExtent => 76;
-
-  @override
-  double get maxExtent => 76;
-
-  @override
-  Widget build(
-      BuildContext context, double shrinkOffset, bool overlapsContent) {
+  Widget build(BuildContext context) {
     return Container(
       color: _kBackground,
       padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 12),
@@ -587,7 +570,7 @@ class _ActionRowDelegate extends SliverPersistentHeaderDelegate {
                         color: Colors.white, size: 18),
                     SizedBox(width: 6),
                     Text(
-                      '▶ 播放全部',
+                      '播放全部',
                       style: TextStyle(
                         fontFamily: 'Plus Jakarta Sans',
                         fontWeight: FontWeight.w700,
@@ -622,7 +605,7 @@ class _ActionRowDelegate extends SliverPersistentHeaderDelegate {
                     Icon(Icons.shuffle, color: _kPrimary, size: 18),
                     SizedBox(width: 6),
                     Text(
-                      '⇌ 随机播放',
+                      '随机播放',
                       style: TextStyle(
                         fontFamily: 'Plus Jakarta Sans',
                         fontWeight: FontWeight.w700,
@@ -639,10 +622,6 @@ class _ActionRowDelegate extends SliverPersistentHeaderDelegate {
       ),
     );
   }
-
-  @override
-  bool shouldRebuild(_ActionRowDelegate old) =>
-      onPlayAll != old.onPlayAll || onShuffle != old.onShuffle;
 }
 
 // ─── Song Row ─────────────────────────────────────────────────────────────────

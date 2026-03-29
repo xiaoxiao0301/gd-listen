@@ -20,7 +20,6 @@ const _kOnSurface = Color(0xFF1B1C19);
 const _kOnSurfaceVariant = Color(0xFF514439);
 const _kPrimary = Color(0xFF865213);
 const _kPrimaryContainer = Color(0xFFE2A05B);
-const _kOnPrimaryContainer = Color(0xFF613700);
 const _kOutlineVariant = Color(0xFFD6C3B4);
 
 /// Mobile playlist-list screen.
@@ -57,12 +56,6 @@ class PlaylistScreen extends ConsumerWidget {
               padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 16),
               child: Row(
                 children: [
-                  GestureDetector(
-                    onTap: () => Navigator.maybePop(context),
-                    child: const Icon(Icons.arrow_back,
-                        color: _kPrimary, size: 24),
-                  ),
-                  const SizedBox(width: 16),
                   Expanded(
                     child: Text(
                       '我的歌单',
@@ -95,8 +88,6 @@ class PlaylistScreen extends ConsumerWidget {
                           color: Colors.white, size: 22),
                     ),
                   ),
-                  const SizedBox(width: 8),
-                  const Icon(Icons.more_vert, color: _kPrimary, size: 24),
                 ],
               ),
             ),
@@ -110,7 +101,7 @@ class PlaylistScreen extends ConsumerWidget {
           ),
 
           // ── Editorial header ────────────────────────────────────────────
-          const SliverToBoxAdapter(child: _EditorialHeader()),
+          // (removed: no English branding text needed)
 
           // ── Playlist list ───────────────────────────────────────────────
           playlistAsync.when(
@@ -143,6 +134,8 @@ class PlaylistScreen extends ConsumerWidget {
                           },
                           onLongPress: () =>
                               _showPlaylistActions(context, ref, pl),
+                          onDelete: () =>
+                              _showDeleteConfirm(context, ref, pl),
                         ),
                       );
                     },
@@ -174,8 +167,6 @@ class PlaylistScreen extends ConsumerWidget {
             ),
           ),
 
-          // ── "探索更多" promo section ─────────────────────────────────────
-          const SliverToBoxAdapter(child: _ExploreMoreSection()),
 
           // ── Bottom padding above mini player + nav ───────────────────────
           SliverToBoxAdapter(
@@ -420,54 +411,6 @@ class PlaylistScreen extends ConsumerWidget {
   }
 }
 
-// ─── Editorial header ─────────────────────────────────────────────────────────
-
-class _EditorialHeader extends StatelessWidget {
-  const _EditorialHeader();
-
-  @override
-  Widget build(BuildContext context) {
-    return const Padding(
-      padding: EdgeInsets.fromLTRB(24, 32, 24, 32),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          Text(
-            'COLLECTIONS',
-            style: TextStyle(
-              fontSize: 10,
-              fontWeight: FontWeight.w600,
-              letterSpacing: 2.5,
-              color: _kPrimary,
-            ),
-          ),
-          SizedBox(height: 8),
-          Text(
-            'Personal Curations',
-            style: TextStyle(
-              fontFamily: 'Plus Jakarta Sans',
-              fontSize: 30,
-              fontWeight: FontWeight.w800,
-              letterSpacing: -0.8,
-              color: _kOnSurface,
-              height: 1.1,
-            ),
-          ),
-          SizedBox(height: 8),
-          Text(
-            'Your tactile collection of sound,\norganized by mood and moment.',
-            style: TextStyle(
-              fontSize: 14,
-              color: _kOnSurfaceVariant,
-              height: 1.5,
-            ),
-          ),
-        ],
-      ),
-    );
-  }
-}
-
 // ─── Playlist card ────────────────────────────────────────────────────────────
 
 class _PlaylistCard extends ConsumerStatefulWidget {
@@ -475,11 +418,13 @@ class _PlaylistCard extends ConsumerStatefulWidget {
     required this.playlist,
     required this.onTap,
     required this.onLongPress,
+    required this.onDelete,
   });
 
   final Playlist playlist;
   final VoidCallback onTap;
   final VoidCallback onLongPress;
+  final VoidCallback onDelete;
 
   @override
   ConsumerState<_PlaylistCard> createState() => _PlaylistCardState();
@@ -557,7 +502,19 @@ class _PlaylistCardState extends ConsumerState<_PlaylistCard> {
                 ),
               ),
 
-              // ── Chevron ────────────────────────────────────────────────
+              // ── Delete + Chevron ───────────────────────────────────────────────────────
+              GestureDetector(
+                onTap: widget.onDelete,
+                child: Padding(
+                  padding: const EdgeInsets.only(left: 4, right: 4),
+                  child: const Icon(
+                    Icons.delete_outline,
+                    color: Color(0xFFBA1A1A),
+                    size: 22,
+                  ),
+                ),
+              ),
+              const SizedBox(width: 4),
               Icon(
                 Icons.chevron_right,
                 color: _pressed ? _kPrimary : _kOutlineVariant,
@@ -693,93 +650,6 @@ class _EmptyPlaylistHint extends StatelessWidget {
             ),
           ],
         ),
-      ),
-    );
-  }
-}
-
-// ─── "探索更多" promo section ──────────────────────────────────────────────────
-
-class _ExploreMoreSection extends StatelessWidget {
-  const _ExploreMoreSection();
-
-  @override
-  Widget build(BuildContext context) {
-    return Padding(
-      padding: const EdgeInsets.fromLTRB(24, 48, 24, 0),
-      child: Column(
-        children: [
-          Container(
-            height: 1,
-            color: _kOutlineVariant.withValues(alpha: 0.3),
-          ),
-          const SizedBox(height: 32),
-          Container(
-            padding: const EdgeInsets.all(32),
-            decoration: BoxDecoration(
-              color: _kSurfaceContainerLow,
-              borderRadius: BorderRadius.circular(24),
-              border: Border.all(
-                color: _kOutlineVariant.withValues(alpha: 0.10),
-              ),
-            ),
-            child: Column(
-              children: [
-                Container(
-                  width: 64,
-                  height: 64,
-                  decoration: const BoxDecoration(
-                    color: _kSurfaceContainerHighest,
-                    shape: BoxShape.circle,
-                  ),
-                  child: const Icon(
-                    Icons.stars,
-                    color: _kPrimary,
-                    size: 30,
-                  ),
-                ),
-                const SizedBox(height: 16),
-                const Text(
-                  '探索更多',
-                  style: TextStyle(
-                    fontFamily: 'Plus Jakarta Sans',
-                    fontSize: 18,
-                    fontWeight: FontWeight.w700,
-                    color: _kOnSurface,
-                  ),
-                ),
-                const SizedBox(height: 8),
-                const Text(
-                  '根据你的听歌习惯，我们为你生成了新的建议。',
-                  style: TextStyle(
-                    fontSize: 14,
-                    color: _kOnSurfaceVariant,
-                    height: 1.5,
-                  ),
-                  textAlign: TextAlign.center,
-                ),
-                const SizedBox(height: 24),
-                Container(
-                  padding: const EdgeInsets.symmetric(
-                      horizontal: 24, vertical: 10),
-                  decoration: BoxDecoration(
-                    color: _kPrimaryContainer,
-                    borderRadius: BorderRadius.circular(999),
-                  ),
-                  child: const Text(
-                    '查看推荐',
-                    style: TextStyle(
-                      fontSize: 12,
-                      fontWeight: FontWeight.w700,
-                      color: _kOnPrimaryContainer,
-                      letterSpacing: 1.5,
-                    ),
-                  ),
-                ),
-              ],
-            ),
-          ),
-        ],
       ),
     );
   }

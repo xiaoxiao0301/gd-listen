@@ -129,7 +129,7 @@ class PlayQueueDrawer extends ConsumerWidget {
                 ),
                 const SizedBox(height: 4),
                 Text(
-                  '$trackCount TRACKS TOTAL',
+                  '共 $trackCount 首',
                   style: const TextStyle(
                     fontSize: 10,
                     fontWeight: FontWeight.w600,
@@ -225,7 +225,7 @@ class _QueueBody extends StatelessWidget {
               borderRadius: BorderRadius.circular(4),
             ),
             child: const Text(
-              'NOW PLAYING',
+              '正在播放',
               style: TextStyle(
                 fontSize: 10,
                 fontWeight: FontWeight.w700,
@@ -517,14 +517,11 @@ class _QueueItemRowState extends State<_QueueItemRow> {
                   ],
                 ),
               ),
-              AnimatedOpacity(
-                opacity: _hovering ? 1.0 : 0.0,
-                duration: const Duration(milliseconds: 150),
-                child: GestureDetector(
-                  onTap: widget.onRemove,
-                  child: const Icon(Icons.close,
-                      size: 20, color: _kOnSurfaceVariant),
-                ),
+              GestureDetector(
+                onTap: widget.onRemove,
+                child: Icon(Icons.close,
+                    size: 20,
+                    color: _kOnSurfaceVariant.withValues(alpha: 0.5)),
               ),
             ],
           ),

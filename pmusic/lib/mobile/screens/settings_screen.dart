@@ -248,12 +248,9 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
                 backgroundColor: _kBg,
                 surfaceTintColor: Colors.transparent,
                 elevation: 0,
-                leading: GestureDetector(
-                  onTap: () => Navigator.maybePop(context),
-                  child: const Icon(Icons.arrow_back, color: _kPrimary),
-                ),
+                automaticallyImplyLeading: false,
                 title: const Text(
-                  'Settings',
+                  '设置',
                   style: TextStyle(
                     fontFamily: 'Plus Jakarta Sans',
                     fontWeight: FontWeight.w700,
@@ -262,12 +259,6 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
                   ),
                 ),
                 centerTitle: false,
-                actions: [
-                  const Padding(
-                    padding: EdgeInsets.only(right: 16),
-                    child: Icon(Icons.more_vert, color: _kPrimary),
-                  ),
-                ],
               ),
 
               // ── Scrollable content ────────────────────────────────────────
@@ -275,27 +266,6 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
                 padding: const EdgeInsets.fromLTRB(24, 24, 24, 120),
                 sliver: SliverList.list(
                   children: [
-                    // ── Hero branding ─────────────────────────────────────
-                    const Text(
-                      'The Analog Soul',
-                      style: TextStyle(
-                        fontFamily: 'Plus Jakarta Sans',
-                        fontWeight: FontWeight.w800,
-                        fontSize: 28,
-                        color: _kOnSurface,
-                      ),
-                    ),
-                    const SizedBox(height: 6),
-                    Text(
-                      'Personalize your tactile audio experience.',
-                      style: TextStyle(
-                        fontWeight: FontWeight.w500,
-                        fontSize: 13,
-                        color: _kOnSurfaceVariant.withValues(alpha: 0.7),
-                      ),
-                    ),
-                    const SizedBox(height: 36),
-
                     // ── Section: 播放 ─────────────────────────────────────
                     const _SectionHeader(icon: Icons.tune, label: '播放'),
                     const SizedBox(height: 12),

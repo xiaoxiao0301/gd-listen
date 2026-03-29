@@ -75,7 +75,7 @@ class _MiniPlayerState extends ConsumerState<MiniPlayer>
             MusicApiClient.buildPicUrl(song.source.param, song.picId);
 
         return Padding(
-          padding: const EdgeInsets.symmetric(horizontal: 12),
+          padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 4),
           child: GestureDetector(
             onTap: widget.onTap,
             // Up-swipe navigates to full player screen.
@@ -85,19 +85,19 @@ class _MiniPlayerState extends ConsumerState<MiniPlayer>
               }
             },
             child: ClipRRect(
-              borderRadius: BorderRadius.circular(20),
+              borderRadius: BorderRadius.circular(16),
               child: BackdropFilter(
                 filter: ImageFilter.blur(sigmaX: 20, sigmaY: 20),
                 child: Container(
                   height: 64,
                   decoration: BoxDecoration(
                     color: _kGlass,
-                    borderRadius: BorderRadius.circular(20),
+                    borderRadius: BorderRadius.circular(16),
                     boxShadow: [
                       BoxShadow(
-                        color: const Color(0xFF865213).withValues(alpha: 0.08),
-                        blurRadius: 32,
-                        offset: const Offset(0, -8),
+                        color: const Color(0xFF865213).withValues(alpha: 0.10),
+                        blurRadius: 20,
+                        offset: const Offset(0, -4),
                       ),
                     ],
                   ),

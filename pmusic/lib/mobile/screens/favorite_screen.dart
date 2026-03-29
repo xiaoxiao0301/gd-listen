@@ -135,10 +135,7 @@ class _FavoriteScreenState extends ConsumerState<FavoriteScreen> {
                       tooltip: allSelected ? '取消全选' : '全选',
                       onPressed: () => _toggleAll(songs),
                     )
-                  : IconButton(
-                      icon: const Icon(Icons.arrow_back, color: _kPrimary),
-                      onPressed: () => Navigator.of(context).maybePop(),
-                    ),
+                  : null,
               title: AnimatedSwitcher(
                 duration: const Duration(milliseconds: 150),
                 child: Text(
@@ -397,185 +394,181 @@ class _HeroSection extends StatelessWidget {
 
     return Padding(
       padding: const EdgeInsets.fromLTRB(24, 32, 24, 0),
-      child: Row(
-        crossAxisAlignment: CrossAxisAlignment.end,
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          // Cover art with heart badge
-          SizedBox(
-            width: 192,
-            height: 192,
-            child: Stack(
-              clipBehavior: Clip.none,
-              children: [
-                // Main cover
-                ClipRRect(
-                  borderRadius: BorderRadius.circular(12),
-                  child: Container(
-                    width: 192,
-                    height: 192,
-                    decoration: const BoxDecoration(
-                      boxShadow: [
-                        BoxShadow(
-                          color: Color(0x1F865213),
-                          blurRadius: 32,
-                          offset: Offset(0, 8),
-                        ),
-                      ],
+          // Cover art with heart badge (centered)
+          Center(
+            child: SizedBox(
+              width: 192,
+              height: 204,
+              child: Stack(
+                clipBehavior: Clip.none,
+                children: [
+                  // Main cover
+                  ClipRRect(
+                    borderRadius: BorderRadius.circular(12),
+                    child: Container(
+                      width: 192,
+                      height: 192,
+                      decoration: const BoxDecoration(
+                        boxShadow: [
+                          BoxShadow(
+                            color: Color(0x1F865213),
+                            blurRadius: 32,
+                            offset: Offset(0, 8),
+                          ),
+                        ],
+                      ),
+                      child: coverUrl.isNotEmpty
+                          ? CachedNetworkImage(
+                              imageUrl: coverUrl,
+                              fit: BoxFit.cover,
+                              placeholder: (_, _) =>
+                                  const _CoverPlaceholder(),
+                              errorWidget: (_, _, _) =>
+                                  const _CoverPlaceholder(),
+                            )
+                          : const _CoverPlaceholder(),
                     ),
-                    child: coverUrl.isNotEmpty
-                        ? CachedNetworkImage(
-                            imageUrl: coverUrl,
-                            fit: BoxFit.cover,
-                            placeholder: (_, _) =>
-                                const _CoverPlaceholder(),
-                            errorWidget: (_, _, _) =>
-                                const _CoverPlaceholder(),
-                          )
-                        : const _CoverPlaceholder(),
                   ),
-                ),
-                // Heart badge overlay
-                Positioned(
-                  bottom: -12,
-                  right: -12,
+                  // Heart badge overlay
+                  Positioned(
+                    bottom: 0,
+                    right: -12,
+                    child: Container(
+                      width: 48,
+                      height: 48,
+                      decoration: const BoxDecoration(
+                        color: Color(0xFFA03E40),
+                        shape: BoxShape.circle,
+                        boxShadow: [
+                          BoxShadow(
+                            color: Color(0x40A03E40),
+                            blurRadius: 12,
+                            offset: Offset(0, 4),
+                          ),
+                        ],
+                      ),
+                      child: const Icon(Icons.favorite,
+                          color: Colors.white, size: 22),
+                    ),
+                  ),
+                ],
+              ),
+            ),
+          ),
+
+          const SizedBox(height: 28),
+
+          // Info text
+          const Text(
+            '个人曲库',
+            style: TextStyle(
+              fontFamily: 'Be Vietnam Pro',
+              fontSize: 10,
+              fontWeight: FontWeight.w700,
+              letterSpacing: 3.2,
+              color: _kOutline,
+            ),
+          ),
+          const SizedBox(height: 4),
+          const Text(
+            '我的收藏',
+            style: TextStyle(
+              fontFamily: 'Plus Jakarta Sans',
+              fontSize: 36,
+              fontWeight: FontWeight.w800,
+              letterSpacing: -1.0,
+              color: _kOnSurface,
+              height: 1.1,
+            ),
+          ),
+          const SizedBox(height: 8),
+          Text(
+            '这里存放着你最感动的每一个瞬间，共 ${songs.length} 首曲目。',
+            style: const TextStyle(
+              fontSize: 13,
+              color: _kOnSurfaceVariant,
+              height: 1.5,
+            ),
+          ),
+          const SizedBox(height: 16),
+          // Side-by-side action buttons
+          Row(
+            children: [
+              // Play All pill (fills remaining width)
+              Expanded(
+                child: GestureDetector(
+                  onTap: onPlayAll,
                   child: Container(
-                    width: 48,
-                    height: 48,
-                    decoration: const BoxDecoration(
-                      color: Color(0xFFA03E40),
-                      shape: BoxShape.circle,
-                      boxShadow: [
+                    padding: const EdgeInsets.symmetric(
+                        horizontal: 24, vertical: 12),
+                    decoration: BoxDecoration(
+                      gradient: const LinearGradient(
+                        colors: [_kPrimary, _kPrimaryContainer],
+                      ),
+                      borderRadius: BorderRadius.circular(999),
+                      boxShadow: const [
                         BoxShadow(
-                          color: Color(0x40A03E40),
-                          blurRadius: 12,
+                          color: Color(0x33865213),
+                          blurRadius: 16,
                           offset: Offset(0, 4),
                         ),
                       ],
                     ),
-                    child: const Icon(Icons.favorite,
-                        color: Colors.white, size: 22),
-                  ),
-                ),
-              ],
-            ),
-          ),
-
-          const SizedBox(width: 32),
-
-          // Info + actions
-          Expanded(
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              mainAxisAlignment: MainAxisAlignment.end,
-              children: [
-                const Text(
-                  '个人曲库',
-                  style: TextStyle(
-                    fontFamily: 'Be Vietnam Pro',
-                    fontSize: 10,
-                    fontWeight: FontWeight.w700,
-                    letterSpacing: 3.2,
-                    color: _kOutline,
-                  ),
-                ),
-                const SizedBox(height: 4),
-                const Text(
-                  '我的收藏',
-                  style: TextStyle(
-                    fontFamily: 'Plus Jakarta Sans',
-                    fontSize: 36,
-                    fontWeight: FontWeight.w800,
-                    letterSpacing: -1.0,
-                    color: _kOnSurface,
-                    height: 1.1,
-                  ),
-                ),
-                const SizedBox(height: 8),
-                Text(
-                  '这里存放着你最感动的每一个瞬间，共 ${songs.length} 首曲目。',
-                  style: const TextStyle(
-                    fontSize: 13,
-                    color: _kOnSurfaceVariant,
-                    height: 1.5,
-                  ),
-                ),
-                const SizedBox(height: 16),
-                Row(
-                  children: [
-                    // Play All pill
-                    GestureDetector(
-                      onTap: onPlayAll,
-                      child: Container(
-                        padding: const EdgeInsets.symmetric(
-                            horizontal: 24, vertical: 12),
-                        decoration: BoxDecoration(
-                          gradient: const LinearGradient(
-                            colors: [_kPrimary, _kPrimaryContainer],
+                    child: const Row(
+                      mainAxisSize: MainAxisSize.min,
+                      mainAxisAlignment: MainAxisAlignment.center,
+                      children: [
+                        Icon(Icons.play_arrow,
+                            color: Colors.white, size: 18),
+                        SizedBox(width: 6),
+                        Text(
+                          '全部播放',
+                          style: TextStyle(
+                            fontFamily: 'Be Vietnam Pro',
+                            fontWeight: FontWeight.w700,
+                            fontSize: 13,
+                            color: Colors.white,
                           ),
-                          borderRadius:
-                              BorderRadius.circular(999),
-                          boxShadow: const [
-                            BoxShadow(
-                              color: Color(0x33865213),
-                              blurRadius: 16,
-                              offset: Offset(0, 4),
-                            ),
-                          ],
                         ),
-                        child: const Row(
-                          mainAxisSize: MainAxisSize.min,
-                          children: [
-                            Icon(Icons.play_arrow,
-                                color: Colors.white, size: 18),
-                            SizedBox(width: 6),
-                            Text(
-                              '全部播放',
-                              style: TextStyle(
-                                fontFamily: 'Be Vietnam Pro',
-                                fontWeight: FontWeight.w700,
-                                fontSize: 13,
-                                color: Colors.white,
-                              ),
-                            ),
-                          ],
-                        ),
-                      ),
+                      ],
                     ),
-                    const SizedBox(width: 12),
-                    // Shuffle pill
-                    GestureDetector(
-                      onTap: onShuffle,
-                      child: Container(
-                        padding: const EdgeInsets.symmetric(
-                            horizontal: 20, vertical: 12),
-                        decoration: BoxDecoration(
-                          color: _kSurfaceContainerLow,
-                          borderRadius:
-                              BorderRadius.circular(999),
-                        ),
-                        child: const Row(
-                          mainAxisSize: MainAxisSize.min,
-                          children: [
-                            Icon(Icons.shuffle,
-                                color: _kPrimary, size: 18),
-                            SizedBox(width: 6),
-                            Text(
-                              '随机播放',
-                              style: TextStyle(
-                                fontFamily: 'Be Vietnam Pro',
-                                fontWeight: FontWeight.w700,
-                                fontSize: 13,
-                                color: _kPrimary,
-                              ),
-                            ),
-                          ],
-                        ),
-                      ),
-                    ),
-                  ],
+                  ),
                 ),
-              ],
-            ),
+              ),
+              const SizedBox(width: 12),
+              // Shuffle pill
+              GestureDetector(
+                onTap: onShuffle,
+                child: Container(
+                  padding: const EdgeInsets.symmetric(
+                      horizontal: 20, vertical: 12),
+                  decoration: BoxDecoration(
+                    color: _kSurfaceContainerLow,
+                    borderRadius: BorderRadius.circular(999),
+                  ),
+                  child: const Row(
+                    mainAxisSize: MainAxisSize.min,
+                    children: [
+                      Icon(Icons.shuffle,
+                          color: _kPrimary, size: 18),
+                      SizedBox(width: 6),
+                      Text(
+                        '随机播放',
+                        style: TextStyle(
+                          fontFamily: 'Be Vietnam Pro',
+                          fontWeight: FontWeight.w700,
+                          fontSize: 13,
+                          color: _kPrimary,
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
+              ),
+            ],
           ),
         ],
       ),
